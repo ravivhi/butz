@@ -1,6 +1,6 @@
 # Builds the web version of the app and publishes it with this repo's own GitHub Pages:
-#   https://ravivhi.github.io/butz/            (the app)
-#   https://ravivhi.github.io/butz/privacy.html (privacy policy for Google Play, from public/)
+#   https://ravivh.com/butz/                   (the app)
+#   https://ravivh.com/butz/privacy.html (privacy policy for Google Play, from public/)
 # Stand-alone: no other repo is involved. Runs on every push to main that changes the app.
 name: Publish web + privacy page
 

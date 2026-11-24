@@ -1,12 +1,13 @@
 /* Sticker notebooks, surprise envelopes and the shop (SPEC §10). Tap-only; nothing is ever taken away.
-   Stickers are alive (LiveSticker); the shop only offers notebooks for the child's gender; nothing is read aloud unasked. */
+   Stickers are alive (LiveSticker); the shop only offers notebooks for the child's gender; nothing is read aloud unasked
+   (spoken lines only with the parent's autoSpeak setting; otherwise sound effects). */
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { GOLD_STICKER, NOTEBOOK, isShiny, notebooksFor, stickerEmoji, stickerId } from '../engine/content/stickers';
-import { PRICES, buyNotebook, envelopePrice, notebookFull, openEnvelope, progress } from '../engine/economy';
+import { buyNotebook, envelopePrice, notebookFull, notebookPrice, openEnvelope, progress } from '../engine/economy';
 import { makeRng } from '../engine/rng';
 import { SAY, g, needMore } from '../engine/phrases';
-import { back, go, replace, updateProfile, useProfile } from '../state/store';
+import { back, current, go, replace, updateProfile, useProfile } from '../state/store';
 import { Big, Burst, Card, HelpButton, Round, Screen, TopBar, Txt } from '../ui/kit';
 import { Butz } from '../ui/Butz';
 import { LiveSticker } from '../ui/LiveSticker';
@@ -16,6 +17,8 @@ import { sfx } from '../services/sfx';
 
 const native = Platform.OS !== 'web';
 const PER_PAGE = 6;
+/** Speak only when the parent turned on read-aloud. */
+const talk = (text: string | string[]) => { if (current()?.settings.autoSpeak) say(text, { rate: RATE.talk }); };
 
 export function Notebooks() {
   const p = useProfile()!;
@@ -42,7 +45,7 @@ export function Notebooks() {
           const pr = progress(p.wallet, n.id);
           return (
             <Pressable key={n.id} testID={'nb-' + n.id} accessibilityLabel={n.name}
-              onPress={() => { sfx('tap'); if (owned) go({ name: 'notebook', id: n.id }); else say([n.name, g(SAY.inShop, p.gender)], { rate: RATE.talk }); }}>
+              onPress={() => { sfx('tap'); if (owned) go({ name: 'notebook', id: n.id }); else { talk([n.name, g(SAY.inShop, p.gender)]); go({ name: 'shop' }); } }}>
               <Card color={owned ? n.color : '#CFD8DC'} style={{ width: s(150), height: s(180), alignItems: 'center', justifyContent: 'center', gap: s(6), opacity: owned ? 1 : 0.6 }}>
                 <Text style={{ fontSize: s(60) }}>{owned ? n.cover : '🔒'}</Text>
                 <Txt size={16} font="read" color="#FFFFFF">{n.name}</Txt>
@@ -94,12 +97,12 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
     let res: ReturnType<typeof openEnvelope> | undefined;
     updateProfile((pp) => { pp.wallet.active = id; res = openEnvelope(pp.wallet, makeRng()); });
     if (!res) return;
-    if (!res.ok) { say(res.reason === 'stars' ? needMore(price - p.wallet.stars, p.gender) : g(SAY.allFull, p.gender), { rate: RATE.talk }); return; }
+    if (!res.ok) { sfx('boing'); talk(res.reason === 'stars' ? needMore(price - p.wallet.stars, p.gender) : g(SAY.allFull, p.gender)); return; }
     sfx('reveal');
     setReveal({ sticker: res.sticker, completed: res.completed, notebook: res.notebook });
     pop.setValue(0);
     Animated.timing(pop, { toValue: 1, duration: reduced ? 1 : 800, easing: Easing.out(Easing.back(2)), useNativeDriver: native }).start();
-    say(g(isShiny(res.sticker) ? SAY.shinySticker : SAY.newSticker, p.gender), { rate: RATE.talk });
+    talk(g(isShiny(res.sticker) ? SAY.shinySticker : SAY.newSticker, p.gender));
   };
   const place = () => {
     if (!reveal) return;
@@ -109,7 +112,7 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
     setFresh(reveal.sticker);
     sfx(isShiny(reveal.sticker) ? 'twinkle' : 'star');
     setBurst((b) => b + 1);
-    if (reveal.completed) say(g(SAY.notebookDone, p.gender), { rate: RATE.talk });
+    if (reveal.completed) { sfx('win'); talk(g(SAY.notebookDone, p.gender)); }
     setReveal(null);
   };
 
@@ -175,16 +178,17 @@ export function Shop() {
   const pal = usePalette();
   const { s } = useLayout();
   const price = envelopePrice(p.wallet);
+  const nbPrice = notebookPrice(p.wallet);
   const forSale = notebooksFor(p.gender).filter((n) => !p.wallet.owned.includes(n.id));
   const buyEnvelope = () => {
-    if (p.wallet.stars < price) { say(needMore(price - p.wallet.stars, p.gender), { rate: RATE.talk }); return; }
+    if (p.wallet.stars < price) { sfx('boing'); talk(needMore(price - p.wallet.stars, p.gender)); return; }
     go({ name: 'notebook', id: p.wallet.active, open: true });
   };
   const buy = (id: string) => {
     let ok = false;
     updateProfile((pp) => { ok = buyNotebook(pp.wallet, id).ok; });
-    if (ok) { sfx('win'); say(g(SAY.newNotebook, p.gender), { rate: RATE.talk }); go({ name: 'notebook', id }); }
-    else say(needMore(PRICES.notebook - p.wallet.stars, p.gender), { rate: RATE.talk });
+    if (ok) { sfx('win'); talk(g(SAY.newNotebook, p.gender)); go({ name: 'notebook', id }); }
+    else { sfx('boing'); talk(needMore(nbPrice - p.wallet.stars, p.gender)); }
   };
   return (
     <Screen testID="shop" bg="#FFE3F1">
@@ -211,7 +215,7 @@ export function Shop() {
                 <Text style={{ fontSize: s(56) }}>{n.cover}</Text>
                 <Txt size={15} font="read" color="#FFFFFF">{n.name}</Txt>
                 <Text style={{ fontSize: s(18) }}>{n.stickers.slice(1, 4).join(' ')}</Text>
-                <Txt size={22} font="uiHeavy" color="#FFFFFF">{`${PRICES.notebook} ⭐`}</Txt>
+                <Txt size={22} font="uiHeavy" color="#FFFFFF">{`${nbPrice} ⭐`}</Txt>
               </Card>
             </Pressable>
           ))}

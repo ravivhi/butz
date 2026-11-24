@@ -5,6 +5,8 @@ import { BUTZ, BUTZ_SAY } from './phrases.ts';
 import { validateContent } from './validate.ts';
 import { WORDS, WORD } from './content/words.ts';
 import { speakSyllable } from './generators.ts';
+import { allSpokenTexts } from './spoken.ts';
+import { GAMES } from './curriculum.ts';
 
 const units = (w: string) => analyzeWord(w).units;
 
@@ -60,6 +62,29 @@ test('speakable forms (§3.3)', () => {
   assert.equal(speakSyllable(nfc('בָּ')), nfc('בָּה'));
   assert.equal(speakSyllable(nfc('נָה')), nfc('נָה'));
   assert.equal(speakSyllable(nfc('קֻ')), nfc('קוּ'));
+});
+
+test('speakable forms never spell a common word with another sound (זה כה פה שה תה)', () => {
+  const unpointed = (s: string) => s.replace(/[\u0591-\u05C7]/g, '');
+  for (const id of ['zayin', 'kaf', 'pe', 'fe', 'shin', 'tav']) {
+    const l = LETTERS.find((x) => x.id === id)!;
+    for (const s of [l.say, cvSay(id, 'a')]) assert.ok(!['זה', 'כה', 'פה', 'שה', 'תה'].includes(unpointed(s)), `${id}: ${s}`);
+  }
+  assert.equal(cvSay('zayin', 'a'), nfc('זָא'));
+  assert.equal(cvSay('tav', 'a'), nfc('תָּא'));
+  assert.equal(speakSyllable(nfc('זָ')), nfc('זָא'), 'one-letter syllables in word games use the same forms');
+  assert.equal(speakSyllable(nfc('תָּ')), nfc('תָּא'));
+});
+
+test('the audio inventory lists every spoken line once, NFC, without placeholders', () => {
+  const all = allSpokenTexts();
+  const texts = new Set(all.map((s) => s.text));
+  assert.equal(texts.size, all.length);
+  assert.ok(all.length > 2000, String(all.length));
+  for (const l of LETTERS) assert.ok(texts.has(l.say) && texts.has(l.name), l.id);
+  for (const g of GAMES) for (const m of g.mission) assert.ok(texts.has(m), g.id);
+  assert.ok(texts.has(BUTZ));
+  assert.ok(all.every((s) => s.text === s.text.normalize('NFC') && !s.text.includes('#')));
 });
 
 test('sound classes (R-H2)', () => {

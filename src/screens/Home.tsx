@@ -73,9 +73,9 @@ export function Home() {
           <Big label="מַמְשִׁיכִים!" emoji="▶️" size="xl" color={pal.green} onPress={() => go(p.learner.placementDone ? { name: 'play', source: 'session' } : { name: 'placement' })} testID="continue" glow />
         </View>
         <View style={{ flexDirection: landscape ? 'column' : ROW, gap: s(14), flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Big label="מַפָּה" emoji="🗺️" size="m" color={pal.blue} speak={g(SAY.map, p.gender)} onPress={() => go({ name: 'map' })} testID="nav-map" />
-          <Big label="מַחְבָּרוֹת" emoji={surprise ? '✉️' : '📒'} size="m" color={pal.purple} speak={g(SAY.notebooks, p.gender)} onPress={() => go({ name: 'notebooks' })} testID="nav-notebooks" glow={surprise} />
-          <Big label="חֲנוּת" emoji="🛍️" size="m" color={pal.pink} speak={g(SAY.shop, p.gender)} onPress={() => go({ name: 'shop' })} testID="nav-shop" />
+          <Big label="מַפָּה" emoji="🗺️" size="m" color={pal.blue} onPress={() => go({ name: 'map' })} testID="nav-map" />
+          <Big label="מַחְבָּרוֹת" emoji={surprise ? '✉️' : '📒'} size="m" color={pal.purple} onPress={() => go({ name: 'notebooks' })} testID="nav-notebooks" glow={surprise} />
+          <Big label="חֲנוּת" emoji="🛍️" size="m" color={pal.pink} onPress={() => go({ name: 'shop' })} testID="nav-shop" />
         </View>
       </View>
     </Screen>

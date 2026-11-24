@@ -2,7 +2,7 @@
   "expo": {
     "name": "קוֹרְאִים עִם בּוּץ",
     "slug": "butz-hebrew-reading",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.raviv.butz",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#FFC94D",
         "foregroundImage": "./assets/android-icon-foreground.png",

@@ -37,6 +37,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Azure Speech key for scripts/make-audio.ts (never commit)
+.secrets/
+
 # typescript
 *.tsbuildinfo
 

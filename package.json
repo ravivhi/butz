@@ -1,6 +1,6 @@
 {
   "name": "butz-hebrew-reading",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "index.ts",
   "dependencies": {
@@ -36,6 +36,7 @@
     "web": "expo start --web",
     "test": "node --no-warnings --test --test-reporter=spec \"src/engine/**/*.test.ts\"",
     "validate": "node --no-warnings scripts/validate-content.ts",
+    "audio": "node --no-warnings scripts/make-audio.ts",
     "typecheck": "tsc --noEmit",
     "build:web": "expo export -p web",
     "e2e": "npm run build:web && playwright test",

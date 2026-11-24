@@ -1,15 +1,16 @@
 /* GameHost (SPEC §8.1-§8.2): runs planned activities — mission card, show-me, items with help levels, feedback, stars.
-   Instructions are never read automatically: the mission card is silent and 👂 speaks it on request. */
+   Silent by default (v1.1): nothing is spoken unless the child taps 👂 / 🔊 / 💡 or a speaking tile. Feedback is sound
+   effects and animation. The parent setting "autoSpeak" restores read-aloud stimuli, praise and stories. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
-import { GAME } from '../engine/curriculum';
+import { GAME, type GameId } from '../engine/curriculum';
 import { generate, type ActivitySpec, type Item } from '../engine/generators';
 import { closeReview, introduce, markSeen, record, dayKey, type Attempt } from '../engine/learner';
 import { activityStars } from '../engine/economy';
 import { makeRng } from '../engine/rng';
 import { DONE, MODEL, PRAISE, TRY, g } from '../engine/phrases';
-import { knownFor, updateProfile, useProfile } from '../state/store';
-import { Big, Burst, Card, Dots, HelpButton, Round, Screen, TopBar, Txt } from '../ui/kit';
+import { knownFor, updateProfile, useProfile, type Profile } from '../state/store';
+import { Big, Burst, Card, Dots, HelpButton, ListenButton, Pop, Round, Screen, TopBar, Txt } from '../ui/kit';
 import { Butz, type Mood } from '../ui/Butz';
 import { ROW, useLayout, usePalette } from '../ui/theme';
 import { RATE, say, stopSpeech } from '../services/speech';
@@ -19,8 +20,15 @@ import { Mechanic, type HostItem } from './mechanics';
 /** Content keys shown by an item (for anti-repetition). */
 const seenKeys = (it: HostItem): string[] => [
   ...(it.word ? ['w:' + it.word.id] : []), ...(it.sentence ? ['s:' + it.sentence.id] : []), ...(it.story ? ['st:' + it.story.id] : []),
-  ...(it.id.startsWith('sw:') ? [it.id] : []),
+  ...(it.id.startsWith('sw:') || it.id.startsWith('tr:') ? [it.id] : []),
 ];
+
+/** Games whose item is heard, not seen: their 🔊 button wiggles until tapped (nothing plays by itself). */
+const LISTEN: GameId[] = ['soundSafari', 'syllableHop', 'robotMixer', 'soundLighthouse', 'nikudMagnet', 'syllableDJ', 'wordCollector', 'missingLetter', 'storyTime'];
+
+/** The child's units plus units lent to a free-play activity (every game is open from the map). */
+const knownWith = (p: Profile, spec?: ActivitySpec) => new Set([...knownFor(p), ...(spec?.known ?? [])]);
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Story activities become pages (unscored) + questions + puzzle. */
 function flatten(items: Item[]): HostItem[] {
@@ -53,12 +61,14 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
   const [highlight, setHighlight] = useState<string | null>(null);
   const [mood, setMood] = useState<Mood>('talk');
   const [burst, setBurst] = useState(0);
+  const [cheer, setCheer] = useState(0);
   const [earned, setEarned] = useState(0);
   const st = useRef({ wrongs: 0, first: undefined as string | undefined, t0: 0, log: [] as Attempt[], mastered: 0, struggle: 0, total: 0, recentMiss: [] as boolean[], early: false, locked: false, token: 0 });
   const rng = useMemo(() => makeRng(), []);
   const spec = plan[ai];
   const item = items[ii];
   const gender = profile.gender;
+  const auto = profile.settings.autoSpeak;
   const say1 = (list: readonly (string | readonly [string, string])[]) => g(rng.pick([...list]), gender);
   const mission = spec ? GAME[spec.game].mission[gender === 'girl' ? 1 : 0] : '';
   const firstTime = spec ? !profile.learner.recent.some((a) => a.game === spec.game) : false;
@@ -74,8 +84,8 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
   useEffect(() => {
     if (!spec) return;
     const now = Date.now();
-    if (spec.mode === 'demo') updateProfile((p) => { introduce(p.learner, spec.skill, now, 'demo'); });
-    const ctx = { learner: profile.learner, known: knownFor(profile), rng, fewerChoices: profile.settings.fewerChoices, audioBad: new Set(profile.audioBad) };
+    if (spec.mode === 'demo') updateProfile((p) => { introduce(p.learner, spec.skill, now, 'demo'); if (p.learner.pushNext) p.learner.pushNext--; });
+    const ctx = { learner: profile.learner, known: knownWith(profile, spec), rng, fewerChoices: profile.settings.fewerChoices, audioBad: new Set(profile.audioBad) };
     const its = flatten(generate(spec, ctx));
     Object.assign(st.current, { log: [], mastered: 0, struggle: 0 });
     setEasy(false);
@@ -87,9 +97,9 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
     st.current.token++;
   }, [ai]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ---------- show me */
+  /* ---------- show me: read aloud only with autoSpeak; otherwise the child taps 🔊 and then "נְנַסֶּה" */
   useEffect(() => {
-    if (phase !== 'demo' || !item?.demo) return;
+    if (phase !== 'demo' || !item?.demo || !auto) return;
     const my = ++st.current.token;
     setMood('talk');
     say(item.demo.lines, { rate: RATE.talk, gap: 250 }).then(() => { if (my === st.current.token) setTimeout(() => my === st.current.token && setPhase('play'), 500); });
@@ -118,7 +128,7 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
     setMood('happy');
     const keys = seenKeys(item);
     if (keys.length) updateProfile((p) => markSeen(p.learner, keys, Date.now()));
-    speakItem(item);
+    if (auto) speakItem(item);
   }, [phase, ii, items]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- results */
@@ -146,8 +156,10 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
     log(item, h < 2, h);
     sfx('correct');
     setMood('cheer');
+    setCheer((c) => c + 1);
     const my = ++st.current.token;
-    await say([say1(PRAISE), ...(o?.quiet ? [] : item.reveal ?? [])], { rate: RATE.talk });
+    if (auto) await say([say1(PRAISE), ...(o?.quiet ? [] : item.reveal ?? [])], { rate: RATE.talk });
+    else await wait(o?.stay ? 250 : 700);
     if (my !== st.current.token) return;
     if (!o?.stay) setTimeout(() => my === st.current.token && nextItem(), 350);
     else st.current.locked = false;
@@ -162,6 +174,7 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
     const level = (st.current.wrongs >= 2 ? 2 : 1) as 1 | 2;
     setHelp((hp) => (Math.max(hp, level) as 0 | 1 | 2));
     const my = ++st.current.token;
+    if (!auto) { setTimeout(() => my === st.current.token && setMood('happy'), 700); return; }
     const cue = lines ?? item.hint ?? item.say ?? [];
     say(level === 1 ? [say1(TRY), ...cue] : [g(MODEL, gender), ...(item.reveal ?? cue)], { rate: RATE.slow, gap: 150 }).then(() => { if (my === st.current.token) setMood('happy'); });
   };
@@ -194,7 +207,9 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
     setBurst((b) => b + 1);
     sfx('star');
     const my = ++st.current.token;
-    say([say1(DONE)], { rate: RATE.talk }).then(() => { if (my === st.current.token) setTimeout(() => my === st.current.token && advanceActivity(), 900); });
+    const after = () => { if (my === st.current.token) setTimeout(() => my === st.current.token && advanceActivity(), auto ? 900 : 1800); };
+    if (auto) say([say1(DONE)], { rate: RATE.talk }).then(after);
+    else after();
   };
 
   const advanceActivity = () => {
@@ -232,7 +247,7 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
           </View>
           <View style={{ flexDirection: ROW, gap: s(10) }}>
             <HelpButton text={mission} size={50} testID="help-mission" />
-            <Round emoji="🔊" label="שוב" onPress={replay} testID="replay" size={50} />
+            <ListenButton key={'listen-' + ai + ':' + ii} onPress={replay} size={50} attention={!auto && !item.pages && !!item.say?.length && LISTEN.includes(item.game)} />
             {!item.unscored ? <Round emoji="💡" label="רמז" onPress={onHint} testID="hint" size={50} color="#FFF3C4" /> : null}
           </View>
         </View>
@@ -257,13 +272,13 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
             </Card>
             <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(14) }}>
               <Butz size={oriSize} mood="talk" />
-              <Round emoji="🔊" label="שוב" onPress={() => item.demo && say(item.demo.lines, { rate: RATE.talk, gap: 250 })} testID="demo-again" />
+              <ListenButton onPress={() => item.demo && say(item.demo.lines, { rate: RATE.talk, gap: 250 })} testID="demo-again" attention={!auto} size={64} />
             </View>
             <Big label="נְנַסֶּה!" emoji="✋" color={pal.green} onPress={() => { stopSpeech(); st.current.token++; setPhase('play'); }} testID="try" />
           </View>
         ) : null}
         {phase === 'play' && item ? (
-          <Mechanic key={item.id + ':' + ii} item={item} help={help} easy={easy} highlight={highlight} known={knownFor(profile)} onRight={onRight} onWrong={onWrong} onNext={onNext} replay={replay} />
+          <Mechanic key={item.id + ':' + ii} item={item} help={help} easy={easy} highlight={highlight} known={knownWith(profile, spec)} auto={auto} onRight={onRight} onWrong={onWrong} onNext={onNext} replay={replay} />
         ) : null}
         {phase === 'done' ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: s(16) }} testID="activity-done">
@@ -279,6 +294,7 @@ export function GameHost({ plan, onFinish, onExit }: { plan: ActivitySpec[]; onF
         </View>
       ) : null}
       <Burst run={burst} />
+      <Pop run={cheer} />
     </Screen>
   );
 }

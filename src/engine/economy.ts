@@ -1,12 +1,12 @@
 /* Stars, envelopes and notebooks (SPEC §10). No duplicates, never negative, nothing is ever taken away.
-   Stickers are earned slowly on purpose: a few stars per activity, envelopes get pricier as the collection grows. */
+   v1.1: everything in the shop starts at 5 stars (about two activities), and prices grow slowly with the collection. */
 import { NOTEBOOK, starterNotebooks, stickerId } from './content/stickers.ts';
 import type { Gender } from './phrases.ts';
 import type { Rng } from './rng.ts';
 
 export interface Wallet { stars: number; stickers: Record<string, string[]>; owned: string[]; active: string }
 
-export const PRICES = { envelopeStart: 20, envelopeStep: 2, envelopeMax: 60, notebook: 50 };
+export const PRICES = { envelopeStart: 5, envelopeEvery: 3, envelopeMax: 25, notebookStart: 5, notebookStep: 5, notebookMax: 40 };
 export const STARS = { activity: 1, independentBonus: 1, review: 1, mastery: 3, placement: 10 };
 
 export const newWallet = (gender?: Gender): Wallet => {
@@ -17,9 +17,14 @@ export const newWallet = (gender?: Gender): Wallet => {
 /** Stickers collected so far (gold trophies excluded). */
 export const stickerCount = (w: Wallet): number =>
   Object.values(w.stickers).reduce((n, list) => n + list.filter((s) => !s.endsWith(':gold')).length, 0);
-/** Price of the next surprise envelope: 20 stars, +2 for every sticker already collected, at most 60. */
+/** Price of the next surprise envelope: 5 stars, +1 for every 3 stickers already collected, at most 25. */
 export const envelopePrice = (w: Wallet): number =>
-  Math.min(PRICES.envelopeMax, PRICES.envelopeStart + PRICES.envelopeStep * stickerCount(w));
+  Math.min(PRICES.envelopeMax, PRICES.envelopeStart + Math.floor(stickerCount(w) / PRICES.envelopeEvery));
+/** Price of the next notebook: 5 stars for the first one bought, +5 for each one bought before, at most 40. */
+export const notebookPrice = (w: Wallet): number => {
+  const bought = w.owned.filter((id) => NOTEBOOK[id] && !NOTEBOOK[id].starter).length;
+  return Math.min(PRICES.notebookMax, PRICES.notebookStart + PRICES.notebookStep * bought);
+};
 
 export interface ActivityOutcome { items: number; independentOk: number; review: boolean; mastered: number }
 /** 1 for finishing, +1 when ≥ 80 % was answered without help, +1 for a review, +3 per newly mastered skill. */
@@ -56,8 +61,9 @@ export function openEnvelope(w: Wallet, rng: Rng): EnvelopeResult {
 export type BuyResult = { ok: true } | { ok: false; reason: 'stars' | 'owned' };
 export function buyNotebook(w: Wallet, id: string): BuyResult {
   if (w.owned.includes(id)) return { ok: false, reason: 'owned' };
-  if (w.stars < PRICES.notebook) return { ok: false, reason: 'stars' };
-  w.stars -= PRICES.notebook;
+  const price = notebookPrice(w);
+  if (w.stars < price) return { ok: false, reason: 'stars' };
+  w.stars -= price;
   w.owned.push(id);
   w.active = id;
   return { ok: true };

@@ -19,8 +19,10 @@ export interface Settings {
   highContrast: boolean;
   reducedMotion: boolean;
   fewerChoices: boolean;
+  /** Read stimuli, praise and stories aloud automatically. Off by default (v1.1): nothing is spoken unless the child taps. */
+  autoSpeak: boolean;
 }
-export const DEFAULT_SETTINGS: Settings = { sfx: true, rate: 'normal', minutes: 8, textScale: 1, highContrast: false, reducedMotion: false, fewerChoices: false };
+export const DEFAULT_SETTINGS: Settings = { sfx: true, rate: 'normal', minutes: 8, textScale: 1, highContrast: false, reducedMotion: false, fewerChoices: false, autoSpeak: false };
 
 export interface SessionLog { day: string; acts: number; stars: number }
 export interface Profile {

@@ -32,6 +32,8 @@ export interface Learner {
   placementDone: boolean;
   /** Content key ('w:', 's:', 'st:', 'sw:' + id) → last time it was shown. Generators pick the least recently seen. */
   seen: Record<string, number>;
+  /** A parent asked to move on ("להתקדם עכשיו"): the next spine unit is introduced regardless of readiness. */
+  pushNext?: number;
 }
 
 export const DAY = 24 * 3600 * 1000;
@@ -48,9 +50,12 @@ export const MASTERY = {
   reviewPass: 0.8,
   reviewFail: 0.7,
   reviewMin: 3,
-  readyWindow: 6,
-  readyAccuracy: 0.7,
+  readyWindow: 4,
+  readyAccuracy: 0.6,
+  /** v1.2: how many taught units may be struggling (not ready) before new units wait. Ready units never block. */
   maxInFlight: 3,
+  /** Never stall (v1.2): after this many answers without a new unit (about one session), the next spine unit comes anyway. */
+  stallAttempts: 20,
   keepPerSkill: 30,
   keepRecent: 400,
   keepOkItems: 300,
@@ -158,12 +163,12 @@ export function closeReview(l: Learner, skill: string, attempts: Attempt[], now:
   return 'repeat';
 }
 
-/** Is an in-flight unit ready for the next introduction? (SPEC §7.3) */
+/** Is an in-flight unit ready for the next introduction? (SPEC §7.3: ≥ 60 % of its last 4 answers, at least 3 of them) */
 export function isReady(st: SkillState | undefined): boolean {
   if (!st) return false;
   if (st.status === 'mastered') return true;
   const xs = independent(st).slice(-MASTERY.readyWindow);
-  if (xs.length < MASTERY.readyWindow) return false;
+  if (xs.length < Math.min(3, MASTERY.readyWindow)) return false;
   return xs.filter((a) => a.ok).length / xs.length >= MASTERY.readyAccuracy;
 }
 

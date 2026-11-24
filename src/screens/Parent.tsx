@@ -10,10 +10,12 @@ import { SIGHT_WORDS } from '../engine/content/texts';
 import { SKILL } from '../engine/curriculum';
 import { nextToIntroduce, practiceFocus } from '../engine/planner';
 import { makeRng } from '../engine/rng';
+import { allSpokenTexts } from '../engine/spoken';
 import { back, deleteProfile, go, knownFor, refresh, replace, switchProfile, updateProfile, useProfile, useStore, type Route, type Settings } from '../state/store';
 import { Big, Card, Round, Screen, TopBar, Txt } from '../ui/kit';
 import { FONT, ROW, useLayout, usePalette } from '../ui/theme';
 import { RATE, say, speechInfo } from '../services/speech';
+import { CLIPS } from '../services/clips';
 import { BUTZ } from '../engine/phrases';
 
 export function Gate({ then }: { then: Route }) {
@@ -68,6 +70,8 @@ function Report() {
   const r = buildReport(p.learner, Date.now());
   const ctx = { learner: p.learner, known: knownFor(p), now: Date.now(), minutes: p.settings.minutes, storyToday: true, rng: makeRng(1), spine: p.spine };
   const next = nextToIntroduce(ctx);
+  const upcoming = p.spine.find((u) => !p.learner.skills[u] && !ctx.known.has(u));
+  const pushed = (p.learner.pushNext ?? 0) > 0;
   const focus = practiceFocus(ctx);
   const label = (id: string) => SKILL[id]?.label ?? id;
   const maxDay = Math.max(1, ...r.days.map((d) => d.items));
@@ -118,7 +122,11 @@ function Report() {
       <Card style={{ gap: s(4) }}>
         <Txt size={16} font="uiHeavy" center={false}>מה מתרגלים עכשיו</Txt>
         <Txt size={16} font="read" center={false}>{focus.map(label).join(' · ') || '—'}</Txt>
-        {next ? <Txt size={16} font="read" center={false}>{'הבא בתור: ' + label(next)}</Txt> : null}
+        {upcoming ? <Txt size={16} font="read" center={false}>{'הבא בתור: ' + label(upcoming) + (next || pushed ? '  — יוצג במפגש הבא ✓' : '')}</Txt> : null}
+        {upcoming && !next && !pushed ? (
+          <Big label="להתקדם עכשיו" emoji="⏭️" size="s" color={pal.blue} onPress={() => updateProfile((pp) => { pp.learner.pushNext = 1; })} testID="push-next" />
+        ) : null}
+        <Txt size={13} font="uiMed" color={pal.soft} center={false}>אות או ניקוד חדשים נפתחים כשהקודמים מתחילים להתייצב, ובכל מקרה אחרי כ-30 תשובות. כל המשחקים פתוחים במפה.</Txt>
       </Card>
     </View>
   );
@@ -162,6 +170,7 @@ function SettingsTab() {
   return (
     <View style={{ gap: s(6) }} testID="settings">
       <Card>
+        <Row label="הקראה אוטומטית (כבוי: שומעים רק כשהילד/ה לוחצ/ת על 🔊 או 👂)"><Switch value={p.settings.autoSpeak} onValueChange={(v) => set('autoSpeak', v)} testID="set-autospeak" /></Row>
         <Row label="צלילי משחק"><Switch value={p.settings.sfx} onValueChange={(v) => set('sfx', v)} testID="set-sfx" /></Row>
         <Row label="קצב הדיבור"><Seg value={p.settings.rate} onChange={(v) => set('rate', v)} options={[{ v: 'slow', label: 'איטי' }, { v: 'normal', label: 'רגיל' }]} testID="set-rate" /></Row>
         <Row label="אורך מפגש (דקות)"><Seg value={p.settings.minutes} onChange={(v) => set('minutes', v)} options={[{ v: 5, label: '5' }, { v: 8, label: '8' }, { v: 12, label: '12' }]} testID="set-minutes" /></Row>
@@ -210,9 +219,12 @@ function VoiceTab() {
     return SIGHT_WORDS.map((w) => ({ key: 'sw:' + w.id, show: w.text, say: w.text }));
   }, [cat]);
   const toggle = (k: string) => updateProfile((pp) => { pp.audioBad = pp.audioBad.includes(k) ? pp.audioBad.filter((x) => x !== k) : [...pp.audioBad, k]; });
+  const total = useMemo(() => allSpokenTexts().length, []);
+  const recorded = Object.keys(CLIPS).length;
   return (
     <View style={{ gap: s(8) }} testID="voice">
-      <Txt size={15} font="uiMed" center={false}>{info.hebrew ? `קול עברי: ${info.voiceName}` : 'לא נמצא קול עברי במכשיר.'}</Txt>
+      <Txt size={15} font="uiMed" center={false}>{info.hebrew ? `קול עברי במכשיר: ${info.voiceName}` : 'לא נמצא קול עברי במכשיר.'}</Txt>
+      <Txt size={15} font="uiMed" center={false}>{`הקלטות באפליקציה: ${recorded} מתוך ${total}. ` + (recorded >= total ? 'כל הדיבור מוקלט.' : 'מה שלא הוקלט נאמר בקול של המכשיר.')}</Txt>
       <Txt size={14} font="uiMed" color={pal.soft} center={false}>הקשיבו. אם משהו נשמע לא נכון, סמנו 👎 והוא לא יושמע כשאלה עד שתהיה הקלטה.</Txt>
       <Card style={{ flexDirection: ROW, alignItems: 'center', gap: s(10) }}>
         <Round emoji="▶️" label="השמעה" size={40} onPress={() => say(BUTZ, { rate: RATE.talk })} testID="play-name" />

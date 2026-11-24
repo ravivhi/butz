@@ -1,14 +1,16 @@
 /* Item generators (SPEC §8.3): one pure function per game, (spec, ctx) → items. Enforces R-H1/R-H2/R-H4. */
-import { LETTER, LETTERS, SIGN, SIGNS, VOWEL, clusters, cvSay, cvText, nfc, type LetterInfo, type VowelId, SIMILAR, MARK } from './hebrew.ts';
+import { LETTER, LETTERS, SIGN, SIGNS, VOWEL, clusters, cvSay, cvText, letterIdOf, nfc, vowelOfMark, type LetterInfo, type VowelId, SIMILAR, MARK } from './hebrew.ts';
 import { GAME, type GameId } from './curriculum.ts';
 import { WORDS, type Word } from './content/words.ts';
 import { SENTENCES, type Sentence, type Story, type StoryQuestion } from './content/texts.ts';
 import { knownLetters, knownVowels, listenStories, readStoriesFor, sentencesFor, sightFor, wordsFor, decodableWords, type Known } from './gating.ts';
 import { accuracy, type Learner } from './learner.ts';
 import type { Rng } from './rng.ts';
+import { pathLength, samplePath, strokesOf, type Pt } from './strokes.ts';
 
 export type Mode = 'demo' | 'guided' | 'independent' | 'review' | 'placement';
-export interface ActivitySpec { game: GameId; skill: string; mode: Mode; n?: number; target?: string }
+/** `known`: extra units opened for free play from the map (v1.1: every game is open), on top of the child's units. */
+export interface ActivitySpec { game: GameId; skill: string; mode: Mode; n?: number; target?: string; known?: string[] }
 
 export interface Option { id: string; text?: string; emoji?: string; say?: string; label?: string; font?: 'read' | 'serif' | 'ui'; color?: string }
 export interface Item {
@@ -34,6 +36,8 @@ export interface Item {
   puzzle?: Item;
   sentence?: Sentence;
   word?: Word;
+  /** letterTrace: stroke paths (300×300 board), checkpoints per stroke, and how much guide is drawn. */
+  trace?: { strokes: string[]; points: Pt[][]; guide: 'full' | 'dots' | 'ghost' };
 }
 
 export interface GenCtx { learner: Learner; known: Known; rng: Rng; fewerChoices: boolean; audioBad: Set<string> }
@@ -48,14 +52,14 @@ export function optionCount(ctx: GenCtx, skill: string): number {
   return acc !== null && acc >= 0.8 ? 4 : 3;
 }
 
-/** Targets for n items: ≈60% the focus, the rest weighted towards weaker units. */
-function mixTargets(pool: string[], focus: string | undefined, n: number, ctx: GenCtx, prefix: string): string[] {
+/** Targets for n items: ≈60% the focus (80% when teaching it), the rest weighted towards weaker units. */
+function mixTargets(pool: string[], focus: string | undefined, n: number, ctx: GenCtx, prefix: string, share = 0.6): string[] {
   if (!pool.length) return [];
   const out: string[] = [];
   const weight = (id: string) => 1.2 - (accuracy(ctx.learner.skills[prefix + id]) ?? 0.5);
   const others = pool.filter((p) => p !== focus);
   for (let i = 0; i < n; i++) {
-    if (focus && (i === 0 || ctx.rng.chance(0.6) || !others.length)) { out.push(focus); continue; }
+    if (focus && (i === 0 || ctx.rng.chance(share) || !others.length)) { out.push(focus); continue; }
     const total = others.reduce((s, p) => s + weight(p), 0);
     let r = ctx.rng.next() * total;
     let chosen = others[others.length - 1];
@@ -93,7 +97,7 @@ export function keywordFor(letterId: string): Word | undefined {
   return ws.find((w) => w.vowels[0] === 'a') ?? ws[0];
 }
 
-function letterDemo(l: LetterInfo): Item['demo'] {
+export function letterDemo(l: LetterInfo): Item['demo'] {
   if (l.final) {
     const base = LETTER[l.final];
     const ex = WORDS.find((w) => w.lastLetter === l.id && !w.units.includes('X.genuva'));
@@ -103,14 +107,14 @@ function letterDemo(l: LetterInfo): Item['demo'] {
   return { big: l.char, emoji: kw?.emoji, lines: [`זֹאת הָאוֹת ${l.name}.`, `הִיא עוֹשָׂה ${l.say}.`, kw ? `${l.say}, כְּמוֹ ${kw.text}!` : ''].filter(Boolean).map(nfc) };
 }
 
-function vowelDemo(v: VowelId, letter: LetterInfo): Item['demo'] {
+export function vowelDemo(v: VowelId, letter: LetterInfo): Item['demo'] {
   const info = VOWEL[v];
   const names = info.signs.map((s) => SIGN[s].name);
   const same = names.length > 1 ? `${names[0]} וְ${names[1]} עוֹשִׂים אוֹתוֹ צְלִיל: ${info.sayAlone}!` : `${names[0]} עוֹשֶׂה ${info.sayAlone}.`;
   return { big: cvText(letter.id, info.signs[0]), lines: [same, `${letter.name} עִם ${names[0]}: ${cvSay(letter.id, v)}.`].map(nfc) };
 }
 
-const DEMO_FEATURE: Record<string, Item['demo']> = {
+export const DEMO_FEATURE: Record<string, Item['demo']> = {
   'X.quiet': { big: 'פָּרָה', emoji: '🐄', lines: ['יֵשׁ אוֹתִיּוֹת שְׁקֵטוֹת!', 'בְּסוֹף הַמִּלָּה פָּרָה, הָאוֹת הֵא שׁוֹתֶקֶת.', 'קוֹרְאִים: פָּרָה.'].map(nfc) },
   'V.shva': { big: 'דְּבַשׁ', emoji: '🍯', lines: ['זֶה שְׁוָא: שְׁתֵּי נְקֻדּוֹת קְטַנּוֹת.', 'לִפְעָמִים הוּא שָׁקֵט, וְלִפְעָמִים אוֹמְרִים אוֹתוֹ מַהֵר מְאֹד.', 'קוֹרְאִים: דְּבַשׁ.'].map(nfc) },
 };
@@ -127,7 +131,7 @@ function letterPool(ctx: GenCtx, spec: ActivitySpec): string[] {
 function gLighthouse(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
   const focus = spec.target ?? (spec.skill.startsWith('L.') ? spec.skill.slice(2) : undefined);
   const pool = letterPool(ctx, spec).filter((id) => !ctx.audioBad.has('snd:' + id) || id === focus);
-  const targets = spec.mode === 'review' && focus ? Array(n).fill(focus) : mixTargets(pool, focus, n, ctx, 'L.');
+  const targets = spec.mode === 'review' && focus ? Array(n).fill(focus) : mixTargets(pool, focus, n, ctx, 'L.', spec.mode === 'demo' ? 0.8 : 0.6);
   return targets.map((tid, i) => {
     const t = letterById(tid);
     const k = optionCount(ctx, 'L.' + tid);
@@ -141,6 +145,19 @@ function gLighthouse(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
   });
 }
 
+/** A board of letter shapes: nT copies of the target among look-alike and other letters (R-H2: never the target's twin). */
+function shapeBoard(t: LetterInfo, size: number, nT: number, hard: boolean, ctx: GenCtx): string[] {
+  const sim = (SIMILAR[t.base] ?? []).filter((c) => c !== t.base);
+  const others = ctx.rng.shuffle(nonFinal(LETTERS).map((l) => l.base).filter((b, j, a) => a.indexOf(b) === j && b !== t.base && !sim.includes(b)));
+  const fillers: string[] = [];
+  const simPool = ctx.rng.shuffle(sim.filter((c) => !(LETTER[t.finalForm ?? '']?.base === c)));
+  for (let j = 0; fillers.length < size - nT; j++) {
+    const useSim = simPool.length && (hard ? j % 2 === 0 : j % 4 === 0);
+    fillers.push(useSim ? simPool[j % simPool.length] : others[j % others.length]);
+  }
+  return ctx.rng.shuffle([...Array(nT).fill(t.char), ...fillers]);
+}
+
 function gDetective(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
   const focus = spec.target ?? (spec.skill.startsWith('L.') ? spec.skill.slice(2) : undefined);
   const pool = letterPool(ctx, spec);
@@ -148,22 +165,114 @@ function gDetective(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
   return targets.map((tid, i) => {
     const t = letterById(tid);
     const hard = (accuracy(ctx.learner.skills['L.' + tid]) ?? 0) >= 0.8;
-    const size = hard && !ctx.fewerChoices ? 12 : 9;
-    const nT = 2 + ctx.rng.int(2);
-    const sim = (SIMILAR[t.base] ?? []).filter((c) => c !== t.base);
-    const others = ctx.rng.shuffle(nonFinal(LETTERS).map((l) => l.base).filter((b, j, a) => a.indexOf(b) === j && b !== t.base && !sim.includes(b)));
-    const fillers: string[] = [];
-    const simPool = ctx.rng.shuffle(sim.filter((c) => !(LETTER[t.finalForm ?? '']?.base === c)));
-    for (let j = 0; fillers.length < size - nT; j++) {
-      const useSim = simPool.length && (hard ? j % 2 === 0 : j % 4 === 0);
-      fillers.push(useSim ? simPool[j % simPool.length] : others[j % others.length]);
-    }
-    const cells = ctx.rng.shuffle([...Array(nT).fill(t.char), ...fillers]);
+    const cells = shapeBoard(t, hard && !ctx.fewerChoices ? 12 : 9, 2 + ctx.rng.int(2), hard, ctx);
     const options = cells.map((c, j) => ({ id: 'c' + j, text: c, font: 'read' as const }));
     return {
       id: 'shape:' + tid, skill: 'L.' + tid, game: 'letterDetective', say: [nfc(`${t.name}. ${t.say}.`)], show: { letter: t.char },
       options, targets: options.filter((o) => o.text === t.char).map((o) => o.id),
       demo: i === 0 && spec.mode === 'demo' ? letterDemo(t) : undefined,
+    };
+  });
+}
+
+const BALLOON_COLORS = ['#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1', '#F06292', '#FDD835'];
+
+function gBalloons(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
+  const focus = spec.target ?? (spec.skill.startsWith('L.') ? spec.skill.slice(2) : undefined);
+  const targets = mixTargets(letterPool(ctx, spec), focus, n, ctx, 'L.');
+  return targets.map((tid, i) => {
+    const t = letterById(tid);
+    const hard = (accuracy(ctx.learner.skills['L.' + tid]) ?? 0) >= 0.8;
+    const cells = shapeBoard(t, ctx.fewerChoices ? 6 : 8, 3, hard, ctx);
+    const colors = ctx.rng.shuffle(BALLOON_COLORS);
+    const options = cells.map((c, j) => ({ id: 'b' + j, text: c, font: 'read' as const, color: colors[j % colors.length] }));
+    return {
+      id: 'pop:' + tid, skill: 'L.' + tid, game: 'balloonPop', say: [nfc(`${t.name}. ${t.say}.`)], show: { letter: t.char },
+      options, targets: options.filter((o) => o.text === t.char).map((o) => o.id), reveal: [t.say],
+      demo: i === 0 && spec.mode === 'demo' ? letterDemo(t) : undefined,
+    };
+  });
+}
+
+/** Letters with a picture word for the memory game (not finals: no word starts with one). */
+const memoryLetter = (id: string): boolean => !!LETTER[id] && !LETTER[id].final && !!keywordFor(id);
+
+function gMemory(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
+  const focus = spec.target ?? (spec.skill.startsWith('L.') ? spec.skill.slice(2) : undefined);
+  const pool = letterPool(ctx, spec).filter(memoryLetter);
+  const filler = nonFinal(LETTERS).map((l) => l.id).filter(memoryLetter);
+  const pairs = ctx.fewerChoices ? 3 : 4;
+  return Array.from({ length: n }, (_, i) => {
+    const chosen: string[] = [];
+    const sounds = new Set<string>(), pics = new Set<string>();
+    const first = focus && memoryLetter(focus) && (i === 0 || ctx.rng.chance(0.6)) ? [focus] : [];
+    for (const id of [...first, ...ctx.rng.shuffle(pool), ...ctx.rng.shuffle(filler)]) {
+      if (chosen.length >= pairs) break;
+      const kw = keywordFor(id)!;
+      // one card per sound and per picture, so every picture has exactly one matching letter (R-H2)
+      if (chosen.includes(id) || sounds.has(LETTER[id].sound) || pics.has(kw.emoji)) continue;
+      chosen.push(id);
+      sounds.add(LETTER[id].sound);
+      pics.add(kw.emoji);
+    }
+    const cards: Option[] = chosen.flatMap((id) => {
+      const kw = keywordFor(id)!;
+      return [{ id: 'L:' + id, text: LETTER[id].char, font: 'read' as const, say: LETTER[id].say }, { id: 'P:' + id, emoji: kw.emoji, say: kw.say ?? kw.text }];
+    });
+    const main = first[0] ?? chosen[0];
+    return {
+      id: `mem:${main}:${i}`, skill: 'L.' + main, game: 'memoryMatch', options: ctx.rng.shuffle(cards), supported: true,
+      say: chosen.map((id) => nfc(`${LETTER[id].say}, כְּמוֹ ${keywordFor(id)!.text}`)),
+    };
+  });
+}
+
+/** Words whose first letter is the target and that have at least two clusters (something visible after the gap). */
+const missingWords = (id: string): Word[] => WORDS.filter((w) => w.firstLetter === id && !w.units.includes('X.genuva') && clusters(w.text).length >= 2);
+
+function gMissing(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
+  const focus = spec.target ?? (spec.skill.startsWith('L.') ? spec.skill.slice(2) : undefined);
+  const pool = letterPool(ctx, spec).filter((id) => missingWords(id).length > 0);
+  const targets = mixTargets(pool, focus && missingWords(focus).length ? focus : undefined, n, ctx, 'L.');
+  const used = new Set<string>();
+  return targets.map((tid) => {
+    const t = letterById(tid);
+    const w = byFreshness(missingWords(tid), wKey, ctx).sort((a, b) => Number(used.has(a.id)) - Number(used.has(b.id)))[0];
+    used.add(w.id);
+    const cs = clusters(w.text);
+    // vowel points of the first cluster go on every option, so only the letter differs
+    const marks = [...cs[0].raw].filter((ch) => /[\u05B0-\u05BB\u05C7]/.test(ch)).join('');
+    const opts = letterOptions(t, ctx, Math.min(3, optionCount(ctx, 'L.' + tid)), (accuracy(ctx.learner.skills['L.' + tid]) ?? 0) >= 0.8);
+    return {
+      id: 'miss:' + w.id, skill: 'L.' + tid, game: 'missingLetter', word: w, say: [w.say ?? w.text],
+      show: { before: '', after: cs.slice(1).map((c) => c.raw).join(''), emoji: w.emoji },
+      options: opts.map((l) => ({ id: l.id, text: nfc(l.char + marks), font: 'read' as const })), answer: tid,
+      reveal: [w.say ?? w.text], hint: [w.say ?? w.text, t.say],
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ writing */
+
+const TRACE_START = ['mem', 'lamed', 'dalet', 'gimel', 'yod', 'resh', 'qof', 'he'];
+
+function gTrace(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
+  const focus = spec.target ?? (spec.skill.startsWith('L.') ? spec.skill.slice(2) : undefined);
+  const pool = knownLetters(ctx.known).map((l) => l.id);
+  for (const id of TRACE_START) if (pool.length < n + 2 && !pool.includes(id)) pool.push(id);
+  // one item per written shape (בּ and ב are written the same way), least recently written first
+  const shapes = pool.filter((id, j, a) => strokesOf(id).length && a.findIndex((x) => LETTER[x].base === LETTER[id].base) === j);
+  const order = byFreshness(shapes, (id) => 'tr:' + LETTER[id].base, ctx);
+  const fi = focus && LETTER[focus] ? order.findIndex((id) => LETTER[id].base === LETTER[focus].base) : -1;
+  if (fi > 0) order.unshift(...order.splice(fi, 1));
+  const guides = ['full', 'dots', 'ghost'] as const;
+  return order.slice(0, n).map((id, i) => {
+    const l = LETTER[id];
+    const strokes = strokesOf(id);
+    return {
+      id: 'tr:' + l.base, skill: 'WRITE', game: 'letterTrace', say: [nfc(`${l.name}.`)], show: { letter: l.base }, options: [],
+      trace: { strokes, points: strokes.map((d) => samplePath(d, Math.max(8, Math.round(pathLength(d) / 14)))), guide: guides[Math.min(i, 2)] },
+      reveal: [nfc(`${l.name}.`)],
     };
   });
 }
@@ -404,11 +513,15 @@ function gSafari(spec: ActivitySpec, ctx: GenCtx, n: number): Item[] {
   });
 }
 
-/** Speakable form of a syllable: open syllables get a quiet letter so TTS says them cleanly (§3.3). */
+/** Speakable form of a syllable: open syllables get a quiet letter so TTS says them cleanly (§3.3); a bare צירוף
+    uses the same TTS-safe form as the nikud games (cvSay: זָא not זָה, which voices read as the word "ze"). */
 export function speakSyllable(s: string): string {
   const cs = clusters(s);
   const last = cs[cs.length - 1];
   if (!last || last.vowel === null || last.vowel === 'sheva') return s;
+  const v = vowelOfMark(last.vowel);
+  const id = cs.length === 1 ? letterIdOf(last) : '';
+  if (v && LETTER[id] && !LETTER[id].final) return cvSay(id, v);
   if (last.vowel === 'qamats' || last.vowel === 'patah' || last.vowel === 'tsere' || last.vowel === 'segol') return nfc(s + 'ה');
   if (last.vowel === 'hiriq') return nfc(s + 'י');
   if (last.vowel === 'holam') return nfc(s.replace(MARK.holam, '') + 'ו' + MARK.holam);
@@ -510,6 +623,10 @@ export function generate(spec: ActivitySpec, ctx: GenCtx): Item[] {
     case 'robotMixer': return gRobot(spec, ctx, n);
     case 'soundLighthouse': return gLighthouse(spec, ctx, n);
     case 'letterDetective': return gDetective(spec, ctx, n);
+    case 'balloonPop': return gBalloons(spec, ctx, n);
+    case 'memoryMatch': return gMemory(spec, ctx, n);
+    case 'missingLetter': return gMissing(spec, ctx, n);
+    case 'letterTrace': return gTrace(spec, ctx, n);
     case 'nikudMagnet': return gMagnet(spec, ctx, n);
     case 'syllableDJ': return gDJ(spec, ctx, n);
     case 'secretPassword': return gPassword(spec, ctx, n);

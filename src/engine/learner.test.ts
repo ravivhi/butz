@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DAY, closeReview, confusions, introduce, isMasteredNow, markSeen, newLearner, record, reviewDue, type Attempt } from './learner.ts';
-import { activityStars, buyNotebook, envelopePrice, newWallet, openEnvelope, PRICES } from './economy.ts';
+import { activityStars, buyNotebook, envelopePrice, newWallet, notebookPrice, openEnvelope, PRICES } from './economy.ts';
 import { NOTEBOOK, notebooksFor } from './content/stickers.ts';
 import { makeRng } from './rng.ts';
 
@@ -62,11 +62,11 @@ test('introduce is idempotent and keeps how', () => {
   assert.equal(l.skills['V.a'].how, 'placement');
 });
 
-test('envelopes: never duplicates, gold sticker on completion, never negative, pricier as the collection grows', () => {
+test('envelopes: never duplicates, gold sticker on completion, never negative, slowly pricier as the collection grows', () => {
   const w = newWallet('boy');
   const rng = makeRng(1);
   assert.deepEqual(openEnvelope(w, rng), { ok: false, reason: 'stars' });
-  assert.equal(envelopePrice(w), PRICES.envelopeStart);
+  assert.equal(envelopePrice(w), 5, 'the first envelope costs 5 stars');
   w.stars = PRICES.envelopeMax * 40;
   const got = new Set<string>();
   const total = NOTEBOOK[w.active].stickers.length;
@@ -84,10 +84,11 @@ test('envelopes: never duplicates, gold sticker on completion, never negative, p
     }
   }
   assert.ok(completed);
-  assert.equal(lastPrice, PRICES.envelopeMax);
+  assert.equal(lastPrice, 5 + Math.floor((total - 1) / 3), '+1 star every 3 stickers');
+  for (let i = 0; i < 200; i++) openEnvelope(w, rng);
+  assert.ok(envelopePrice(w) <= PRICES.envelopeMax);
   assert.ok(w.stickers.animals.includes('animals:gold'));
-  const next = openEnvelope(w, rng);
-  assert.ok(next.ok && next.notebook === 'dino', 'a full notebook moves on to another owned one');
+  assert.ok(w.stickers.dino?.length, 'a full notebook moves on to another owned one');
   assert.ok(w.stars >= 0);
 });
 
@@ -102,22 +103,28 @@ test('starter notebooks and the shop follow the gender', () => {
   assert.equal(girls.length, 11);
 });
 
-test('buying notebooks', () => {
+test('buying notebooks: the first costs 5 stars, each next one 5 more', () => {
   const w = newWallet('girl');
   assert.deepEqual(buyNotebook(w, 'garden'), { ok: false, reason: 'stars' });
-  w.stars = PRICES.notebook + 5;
+  assert.equal(notebookPrice(w), 5);
+  w.stars = 7;
   assert.deepEqual(buyNotebook(w, 'garden'), { ok: true });
-  assert.equal(w.stars, 5);
+  assert.equal(w.stars, 2);
   assert.deepEqual(buyNotebook(w, 'garden'), { ok: false, reason: 'owned' });
+  assert.equal(notebookPrice(w), 10);
+  w.stars = 1000;
+  for (const n of notebooksFor('girl')) buyNotebook(w, n.id);
+  assert.ok(notebookPrice(w) <= PRICES.notebookMax);
 });
 
-test('stars reward effort, independence, reviews and mastery, and stay scarce', () => {
+test('stars reward effort, independence, reviews and mastery; the shop is reachable quickly', () => {
   assert.equal(activityStars({ items: 5, independentOk: 1, review: false, mastered: 0 }), 1);
   assert.equal(activityStars({ items: 5, independentOk: 4, review: false, mastered: 0 }), 2);
   assert.equal(activityStars({ items: 5, independentOk: 5, review: true, mastered: 1 }), 1 + 1 + 1 + 3);
   assert.equal(activityStars({ items: 0, independentOk: 0, review: false, mastered: 0 }), 0);
-  // A sticker takes many activities: even perfect play needs ≥ 10 activities for the first envelope.
-  assert.ok(PRICES.envelopeStart / activityStars({ items: 5, independentOk: 5, review: false, mastered: 0 }) >= 10);
+  // v1.1: the first sticker comes after about one session (3 good activities), even for a struggling child after 5.
+  assert.ok(PRICES.envelopeStart / activityStars({ items: 5, independentOk: 5, review: false, mastered: 0 }) <= 3);
+  assert.ok(PRICES.envelopeStart / activityStars({ items: 5, independentOk: 0, review: false, mastered: 0 }) <= 5);
 });
 
 test('seen content is remembered and bounded', () => {

@@ -1,11 +1,11 @@
 # AGENTS.md — קוֹרְאִים עִם בּוּץ (Reading with Butz)
 
 Hebrew reading app for children 5-8 (Expo / React Native, TypeScript). A child uses it alone: one big **Continue**
-button runs an adaptive session, Butz the owl explains anything when the child taps 👂, and hard-earned, animated
-stickers make it fun.
+button runs an adaptive session, the app stays quiet until the child taps 👂 (instructions) or 🔊 (the sound/word), every
+world is open on the map, a Writing Workshop teaches letter shapes, and animated stickers (from 5 ⭐) make it fun.
 
 > **The mascot's name is בּוּץ with SHURUK ("Butz"), never בּוֹץ with holam ("botz" = mud).** Always write it pointed.
-> Speech goes through `speakable()` in `speech.ts`, which turns every בּוּץ into `BUTZ_SAY` (`phrases.ts`) so TTS says
+> Speech goes through `speakable()` in `phrases.ts`, which turns every בּוּץ into `BUTZ_SAY` so TTS says
 > /buts/. Never put a prefix on the name in spoken text (לְבּוּץ, שֶׁבּוּץ…): the replacement only matches the bare word.
 
 **Read first:** [docs/SPEC.md](docs/SPEC.md) — the full product spec with requirement IDs (`R-…`), game specs (`G-…`) and
@@ -24,6 +24,7 @@ acceptance criteria. This file is the practical guide: commands, layout, rules, 
 | End-to-end (web, Edge) | `npm run e2e` (builds `dist/`, serves it on :8099, Playwright with a fake speech engine) |
 | Screenshots for review / the store | `npm run build:web`, `node scripts/serve.mjs dist 8099`, then `node scripts/shots.mjs` → `test-results/shots/` |
 | Regenerate sound effects | `node scripts/make-sfx.mjs` |
+| Neural Hebrew audio for every spoken line | `npm run audio` (Azure Speech key needed — [docs/AUDIO.md](docs/AUDIO.md)); `npm run audio -- --dry` counts lines |
 | Regenerate icons, splash, store graphics | `node scripts/make-icons.mjs` |
 | Add a package | `npx expo install <pkg>` (SDK-compatible versions) |
 
@@ -63,17 +64,19 @@ src/engine/             PURE TypeScript, no React/RN — all teaching logic, uni
   gating.ts             what the child can read (R-H1) and which skills are practiceable
   learner.ts            attempts → mastery, review boxes, confusions, report bands (MASTERY), `seen` (anti-repetition)
   generators.ts         one generator per game: (ActivitySpec, ctx) → Item[]; least-recently-seen content first
-  planner.ts            Continue session plan, next unit to teach, free-play spec per game
+  planner.ts            Continue session plan, next unit to teach (never stuck), openPlaySpec (every game open)
   placement.ts          playful starting check (state machine)
-  economy.ts report.ts  stars/envelope prices/notebooks; parent report model
+  strokes.ts            letter stroke paths for the Writing Workshop + checkpoint sampler
+  spoken.ts             allSpokenTexts(): every line the app can say (input of scripts/make-audio.ts)
+  economy.ts report.ts  stars/envelope + notebook prices (from 5 ⭐); parent report model
   validate.ts           content invariants + nikud lint + emoji ≤ Unicode 13 (used by tests and npm run validate)
-src/state/store.ts      profiles (local AsyncStorage key 'butz:v1', gender per child), settings, navigation stack
-src/services/           speech.ts (expo-speech + recorded clips + name fix), clips.ts (recordings), sfx.ts (+ haptics)
-src/ui/                 theme.ts, kit.tsx (Big, Tile, TopBar, HelpButton 👂…), Butz.tsx (SVG mascot), LiveSticker.tsx
-src/games/              GameHost.tsx (silent mission card, help levels, feedback, stars) + mechanics.tsx
+src/state/store.ts      profiles (local AsyncStorage key 'butz:v1', gender per child), settings (autoSpeak…), navigation
+src/services/           speech.ts (clips first, else expo-speech), clips.ts (+ generated clips.generated.ts), sfx.ts
+src/ui/                 theme.ts, kit.tsx (Big, Tile, TopBar, HelpButton 👂, ListenButton 🔊, Pop…), Butz.tsx, LiveSticker.tsx
+src/games/              GameHost.tsx (silent by default, help levels, visual feedback, stars) + mechanics.tsx
 src/screens/            Home (+Setup: gender → name/friend), Play (+SessionEnd, Placement), Map (+World),
                         Stickers (Notebooks, Notebook, Shop), Parent (+Gate)
-assets/                 icons + splash (make-icons.mjs), sfx (make-sfx.mjs)
+assets/                 icons + splash (make-icons.mjs), sfx (make-sfx.mjs), audio/ (make-audio.ts)
 store/                  Google Play icon and feature graphic
 tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 ```
@@ -83,16 +86,19 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 1. **R-H1** Reading tasks only show words whose every unit the child was introduced to — computed by `analyzeWord`, never hand-tagged.
 2. **R-H2** Never two same-sound options in a sound task (א/ע, כּ/ק, ט/ת, ח/כ, ב/ו, ס/שׂ; קמץ/פתח…).
 3. **R-H4** A reading item (`reading: true`) never speaks its stimulus before the answer.
-4. **R-H6** Every spoken צירוף uses its speakable form (`cvSay`, `speakSyllable`), never a bare pointed letter.
+4. **R-H6** Every spoken צירוף uses its speakable form (`cvSay`, `speakSyllable`), never a bare pointed letter, and never a
+   spelling that is also a common word (זָה/כָּה/פָּה/שָׁה/תָּה → זָא/קָה/פָּא/שָׁא/תָּא, SPEC §3.3).
 5. **R-H8** All Hebrew strings are NFC (`nfc()`); child-facing text is fully pointed; parent-facing text may be unpointed.
 6. **R-H9** Every child-facing Hebrew string passes the nikud lint. Real exceptions go into `LINT_OK` with a reason.
    Status `checked` = lint + proofreading; only a native-speaker teacher may set `reviewed`.
 7. **R-H11** Content must not repeat: show new things through generators (they read `learner.seen`), never pick at random.
-8. **R-G5** Never speak instructions automatically. New screens get a 👂 `HelpButton`; only stimuli, story narration,
-   "Show me" demos and short feedback are spoken unasked.
+8. **R-G5** Nothing is spoken automatically (v1.2): not instructions, stimuli, praise, demos or stories. New screens get a
+   👂 `HelpButton`; heard items get the 🔊 `ListenButton`; feedback is sfx + animation. Automatic speech only behind
+   `settings.autoSpeak` (parent switch, off by default). The e2e suite checks that a whole session says nothing.
 9. **R-N7** Anything said *to* the child is gendered: add `[boy, girl]` to `phrases.ts` (or `mission` in `curriculum.ts`).
 10. Engine files import each other **with `.ts` extensions** (Node runs them natively); UI files import the engine without.
-11. Child screens: tap-only (no drag); no timers, lives, leaderboards or lost rewards. Stickers stay expensive (SPEC §10.1).
+11. Child screens: tap-only (no drag, except the Writing Workshop board); no timers, lives, leaderboards or lost rewards.
+    Stickers are reachable (first envelope 5 ⭐, SPEC §10.1). Every game is open from the map (`openPlaySpec`).
 12. Emoji must exist in Unicode 13 (older tablets); `npm run validate` rejects newer ones.
 
 ## How to…
@@ -107,10 +113,14 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
   `mechanics.tsx` (or reuse one), extend `gamesUsable` in `planner.ts` if it has content limits, then add to the e2e
   answer helper. The engine test `generators respect the content rules` exercises every game automatically.
 - **Add a sticker notebook:** `stickers.ts` (exactly 30 emoji, `gender: 'all' | 'boy' | 'girl'`, at most one starter per gender).
-- **Add a recording:** put `assets/audio/<name>.mp3`, register `[nfc('<exact spoken text>')]: require(...)` in
-  `src/services/clips.ts`. Recordings override TTS everywhere that text is spoken (a recording of בּוּץ fixes the name for good).
-- **Tune learning / rewards:** thresholds in `MASTERY` (`learner.ts`), option counts in `optionCount` (`generators.ts`),
-  `STARS` / `PRICES` / `envelopePrice` in `economy.ts`, letter/vowel order in `DEFAULT_SPINE`.
+- **Add a recording:** generated clips come from `npm run audio` (docs/AUDIO.md). A hand recording: put
+  `assets/audio/manual/<name>.mp3` and register `[nfc('<exact spoken text>')]: require(...)` in `MANUAL` in
+  `src/services/clips.ts`; it wins over the generated clip everywhere that text is spoken.
+- **Add a letter shape:** `STROKES` in `src/engine/strokes.ts` (300×300 board, guide lines y=43 / y=257, M/L/Q paths in
+  writing order); the engine test checks every letter has 1-3 strokes inside the board.
+- **Tune learning / rewards:** thresholds in `MASTERY` (`learner.ts`, incl. `stallAttempts`), option counts in
+  `optionCount` (`generators.ts`), `STARS` / `PRICES` / `envelopePrice` / `notebookPrice` in `economy.ts`, letter/vowel
+  order in `DEFAULT_SPINE`.
 
 ## Test hooks (web only)
 
@@ -121,18 +131,21 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 
 | Area | State |
 |------|-------|
-| Spec | `docs/SPEC.md` v1.1 |
-| Engine (parser, nikud lint, content, gating, learner, planner, placement, generators, economy, report) | done, 39 unit tests |
+| Spec | `docs/SPEC.md` v1.2 |
+| Engine (parser, nikud lint, content, gating, learner, planner, placement, generators, economy, report, strokes, spoken lines) | done, 45 unit tests |
 | MVP games (SPEC §12.5): soundSafari, syllableHop, soundLighthouse, letterDetective, nikudMagnet, syllableDJ, secretPassword, syllableTrain, wordBakery, wordExplorer, finalTransformer, wordCollector, echoReader, phraseTrain, storyPuzzle, storyDetective | done |
+| v1.2 games: letterTrace (Writing Workshop), balloonPop, memoryMatch, missingLetter | done |
 | Extra: robotMixer (used by placement), Story Time | done |
 | Content: 340 words, 55 sight words, 72 sentences, 26 stories; anti-repetition | done (`checked`) |
-| Gender-first setup, gendered speech, instructions on demand (👂) | done |
-| Rewards: 16 gendered notebooks × 30 live stickers (shiny ones), rising envelope price, shop | done |
-| Parent area: gate, report, settings, voice check (incl. the name), children (+ gender) | done |
+| Gender-first setup, gendered speech, silent by default (👂 / 🔊 / 💡 on demand, parent read-aloud switch) | done |
+| Progression: all worlds open, faster introduction, never-stuck guard, parent "להתקדם עכשיו" | done |
+| Rewards: 16 gendered notebooks × 30 live stickers (shiny ones), envelopes from 5 ⭐, notebooks from 5 ⭐, shop | done |
+| Parent area: gate, report, settings, voice check (incl. the name and the clip count), children (+ gender) | done |
 | App icons, splash, Play store graphics, `eas.json`, Android package id | done |
-| E2E: first run, instructions on demand + name, beginner path, every game from the map, grown-ups, shop (tablet + phone) | done |
-| v1 games: soundTwins, buildALetter, firstSoundMarket, nikudSorter, missingSound, shvaSubmarine, ahvyDetectives, longWordMaze, storyRehearsal, whatNext, drawWhatYouRead; parent voice recording | not started |
-| Teacher spot-check of the stories; recorded audio for letters/צירופים and the name | recommended before a public release |
+| E2E: first run (silent session), on-demand speech + read-aloud switch, beginner path, every game from the map for a beginner, writing with a finger, grown-ups, shop (tablet + phone) | done |
+| Neural audio: pipeline + inventory ready (`npm run audio`, ≈ 2,800 lines); **clips not generated yet** (needs the owner's Azure Speech key) | waiting for key |
+| v1 games: soundTwins, firstSoundMarket, nikudSorter, missingSound, shvaSubmarine, ahvyDetectives, longWordMaze, storyRehearsal, whatNext, drawWhatYouRead; parent voice recording | not started |
+| Teacher spot-check of the stories | recommended before a public release |
 | Privacy policy page (needed by Google Play for a kids app) | to write and host |
 
 ## Gotchas
@@ -142,3 +155,8 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 - `npm run e2e` needs Microsoft Edge installed (Playwright `channel: 'msedge'`, no browser download).
 - TypeScript 6 defaults `types` to `[]`; `tsconfig.json` lists `node` for the engine tests.
 - OneDrive: `node_modules/` is a normal folder here (~500 packages). Pausing OneDrive sync during `npm ci` is faster.
+- Playwright empties `test-results/` when a run starts: don't keep notes there while `npm run e2e` runs.
+- Web drag: use the gesture's `dx/dy` from the grant point (`locationX/Y`), not `pageX/Y` — the page may be scrolled.
+- Mechanics that collect several taps (FindTap, Balloons, Memory, Bakery, Sequence) keep their progress in a ref:
+  two fast taps arrive before React re-renders, and a state value read from the closure loses one of them.
+- Playwright never "stabilises" a continuously animated element (balloons): click it with `force: true`.

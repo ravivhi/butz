@@ -53,7 +53,7 @@ export const MIN_CONTENT = { words: 4, w3: 3, final: 3, sight: 4, sentences: 3 }
 
 /** Can this skill be practised now? Units: once introduced. Higher skills: once enough decodable content exists. */
 export function practiceable(skill: string, l: Learner, known: Known): boolean {
-  if (skill.startsWith('PA.') || skill === 'COMP.listen' || skill === 'COMP.seq') return true;
+  if (skill.startsWith('PA.') || skill === 'COMP.listen' || skill === 'COMP.seq' || skill === 'WRITE') return true;
   if (skill === 'CV') return knownVowels(known).length > 0 && knownLetters(known).filter((x) => !x.final).length >= 3;
   if (skill === 'W1' || skill === 'W2') return wordsFor(skill, known).length >= MIN_CONTENT.words;
   if (skill === 'W3') return wordsFor(skill, known).length >= MIN_CONTENT.w3;

@@ -4,13 +4,13 @@ import { Platform, Text, View } from 'react-native';
 import { GameHost, type SessionResult } from '../games/GameHost';
 import { Mechanic, type HostItem } from '../games/mechanics';
 import { DEFAULT_SPINE, GAME, type GameId } from '../engine/curriculum';
-import { freePlaySpec, planSession, playedStoryToday } from '../engine/planner';
+import { openPlaySpec, planSession, playedStoryToday } from '../engine/planner';
 import { answerPlacement, currentItem, startPlacement, type PlacementState } from '../engine/placement';
 import { envelopePrice, STARS } from '../engine/economy';
 import { makeRng } from '../engine/rng';
 import { BUTZ, SAY, g } from '../engine/phrases';
 import { back, go, home, knownFor, replace, updateProfile, useProfile } from '../state/store';
-import { Big, Burst, Dots, HelpButton, Screen, TopBar, Txt } from '../ui/kit';
+import { Big, Burst, Dots, HelpButton, ListenButton, Screen, TopBar, Txt } from '../ui/kit';
 import { Butz } from '../ui/Butz';
 import { ROW, useLayout, usePalette } from '../ui/theme';
 import { RATE, say, stopSpeech } from '../services/speech';
@@ -23,11 +23,9 @@ export function Play({ source, game }: { source: 'session' | 'free'; game?: stri
   const plan = useMemo(() => {
     const rng = makeRng();
     const known = knownFor(p);
-    if (source === 'free' && game) {
-      const spec = freePlaySpec(game as GameId, p.learner, known, rng);
-      return spec ? [spec] : [];
-    }
-    return planSession({ learner: p.learner, known, now: Date.now(), minutes: p.settings.minutes, storyToday: playedStoryToday(p.learner, Date.now()), rng, spine: p.spine?.length ? p.spine : DEFAULT_SPINE });
+    const spine = p.spine?.length ? p.spine : DEFAULT_SPINE;
+    if (source === 'free' && game) return [openPlaySpec(game as GameId, p.learner, known, rng, spine)];
+    return planSession({ learner: p.learner, known, now: Date.now(), minutes: p.settings.minutes, storyToday: playedStoryToday(p.learner, Date.now()), rng, spine });
   }, [run]); // eslint-disable-line react-hooks/exhaustive-deps
   if (Platform.OS === 'web') (globalThis as any).__butzPlan = plan;
   useEffect(() => { if (!plan.length) back(); }, [plan]);
@@ -46,7 +44,7 @@ function SessionEnd({ result, source, again }: { result: SessionResult; source: 
   if (!said.current) {
     said.current = true;
     sfx('win');
-    say(g(result.early ? SAY.sessionEndEarly : SAY.sessionEnd, p.gender), { rate: RATE.talk });
+    if (p.settings.autoSpeak) say(g(result.early ? SAY.sessionEndEarly : SAY.sessionEnd, p.gender), { rate: RATE.talk });
   }
   return (
     <Screen testID="session-end">
@@ -88,6 +86,7 @@ export function Placement() {
   const item = st.current ? (currentItem(st.current) as HostItem | undefined) : undefined;
   if (Platform.OS === 'web') (globalThis as any).__butzGame = { item, phase: stage === 'play' ? 'play' : stage, game: item?.game };
 
+  const auto = p.settings.autoSpeak;
   const speakItem = (it: HostItem | undefined) => {
     if (!it) return;
     say([...(it.say ?? []), ...(it.nameOptions ? it.options.map((o) => o.say) : [])], { rate: RATE.stimulus, gap: 150 });
@@ -96,13 +95,14 @@ export function Placement() {
     stopSpeech();
     st.current = startPlacement(ctx());
     setStage('play');
-    speakItem(currentItem(st.current));
+    if (auto) speakItem(currentItem(st.current));
   };
   const answer = async (ok: boolean) => {
     if (!st.current || locked) return;
     setLocked(true);
     sfx(ok ? 'correct' : 'tap');
-    await say(g(ok ? SAY.placementOk : SAY.placementNext, p.gender), { rate: RATE.talk });
+    if (auto) await say(g(ok ? SAY.placementOk : SAY.placementNext, p.gender), { rate: RATE.talk });
+    else await new Promise((r) => setTimeout(r, 450));
     updateProfile((pp) => answerPlacement(st.current!, pp.learner, { ...ctx(), known: knownFor(pp) }, ok, Date.now()));
     setLocked(false);
     const next = currentItem(st.current);
@@ -110,10 +110,10 @@ export function Placement() {
       updateProfile((pp) => { pp.wallet.stars += STARS.placement; });
       setStage('done');
       sfx('win');
-      say(g(SAY.placementDone, p.gender), { rate: RATE.talk });
+      if (auto) say(g(SAY.placementDone, p.gender), { rate: RATE.talk });
     } else {
       force((x) => x + 1);
-      speakItem(next);
+      if (auto) speakItem(next);
     }
   };
 
@@ -153,9 +153,11 @@ export function Placement() {
       <View style={{ flexDirection: ROW, alignItems: 'center', justifyContent: 'center', gap: s(8) }}>
         <Text style={{ fontSize: s(26) }}>{GAME[item.game].icon}</Text>
         <Txt size={18} font="uiMed" color={pal.soft}>{GAME[item.game].name}</Txt>
+        <HelpButton text={GAME[item.game].mission[p.gender === 'girl' ? 1 : 0]} size={50} testID="help-mission" />
+        {item.say?.length || item.nameOptions ? <ListenButton key={'listen-' + st.current!.total} onPress={() => speakItem(item)} size={50} attention={!auto} /> : null}
       </View>
       <View style={{ flex: 1, padding: s(10) }}>
-        <Mechanic key={item.id + ':' + st.current!.total} item={item} help={0} easy={false} highlight={null} known={knownFor(p)}
+        <Mechanic key={item.id + ':' + st.current!.total} item={item} help={0} easy={false} highlight={null} known={knownFor(p)} auto={auto}
           onRight={async () => { await answer(true); }} onWrong={() => { answer(false); }} onNext={() => answer(true)}
           replay={() => speakItem(item)} />
       </View>

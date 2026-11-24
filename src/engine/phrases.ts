@@ -11,6 +11,11 @@ export const BUTZ = nfc('בּוּץ');
 export const BUTZ_SAY = nfc('בּוּטְס');
 export const APP_NAME = nfc('קוֹרְאִים עִם בּוּץ');
 
+// Every spoken mention of the name goes through BUTZ_SAY (whole word only, so בּוּץ inside another word is untouched).
+const NAME = new RegExp(`(^|[^\u0591-\u05C7\u05D0-\u05EA])${BUTZ}(?=$|[^\u0591-\u05C7\u05D0-\u05EA])`, 'g');
+/** The exact text handed to a voice (device TTS or the audio generator) for a spoken line. */
+export const speakable = (text: string): string => text.normalize('NFC').replace(NAME, `$1${BUTZ_SAY}`);
+
 export const g = (v: G2, gender: Gender | undefined): string => nfc(typeof v === 'string' ? v : v[gender === 'girl' ? 1 : 0]);
 
 export const PRAISE: G2[] = [

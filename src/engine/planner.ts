@@ -1,23 +1,34 @@
 /* Session planner (SPEC §7.2-§7.4): Continue → review, remediation, teach, practise, Story Time. Pure TS. */
 import { GAME, gamesFor, isUnit, type GameId } from './curriculum.ts';
 import { practiceable, type Known } from './gating.ts';
+import { LETTER } from './hebrew.ts';
+import { WORDS } from './content/words.ts';
 import { MASTERY, accuracy, confusions, dayKey, isReady, reviewDue, type Learner } from './learner.ts';
-import type { ActivitySpec, Mode } from './generators.ts';
+import { keywordFor, type ActivitySpec, type Mode } from './generators.ts';
 import type { Rng } from './rng.ts';
 
 export interface PlanCtx { learner: Learner; known: Known; now: number; minutes: number; storyToday: boolean; rng: Rng; spine: string[] }
 export interface PlannedActivity extends ActivitySpec { reason: 'review' | 'remediate' | 'teach' | 'practice' | 'story' }
 
-const HIGHER = ['CV', 'W1', 'W2', 'W3', 'FIN', 'SIGHT', 'FLU.phrase', 'FLU.sentence', 'COMP.read'];
+const HIGHER = ['WRITE', 'CV', 'W1', 'W2', 'W3', 'FIN', 'SIGHT', 'FLU.phrase', 'FLU.sentence', 'COMP.read'];
 const PA = ['PA.first', 'PA.count', 'PA.blend'];
 
-/** Next spine unit to introduce, or undefined when the units being taught are not ready yet (SPEC §7.3). */
-export function nextToIntroduce(ctx: PlanCtx): string | undefined {
+/** Next spine unit to introduce (SPEC §7.3). v1.2: only the most recently taught units gate (older weak units keep being
+    practised but never block new content), and a unit that is going fine (≥ 60 % of its last 4 answers) never blocks,
+    even before mastery (that blocked children for weeks). If one of them is still struggling, the next unit comes anyway
+    after MASTERY.stallAttempts answers, unless all of them struggle. `skip`: units already planned this session. */
+export function nextToIntroduce(ctx: PlanCtx, skip: string[] = []): string | undefined {
   const l = ctx.learner;
-  const teaching = Object.entries(l.skills).filter(([id, s]) => isUnit(id) && s.how === 'demo' && s.status !== 'mastered');
-  if (teaching.length >= MASTERY.maxInFlight) return undefined;
-  if (!teaching.every(([, s]) => isReady(s))) return undefined;
-  return ctx.spine.find((u) => !l.skills[u] && !ctx.known.has(u));
+  const next = ctx.spine.find((u) => !l.skills[u] && !ctx.known.has(u) && !skip.includes(u));
+  if (!next) return undefined;
+  if ((l.pushNext ?? 0) > 0 && !skip.length) return next;
+  const demo = Object.entries(l.skills).filter(([id, s]) => isUnit(id) && s.how === 'demo').map(([, s]) => s);
+  const recentTaught = demo.filter((s) => s.status !== 'mastered').sort((a, b) => b.introducedAt - a.introducedAt).slice(0, MASTERY.maxInFlight);
+  const struggling = recentTaught.filter((s) => !isReady(s)).length;
+  if (struggling === 0) return next;
+  if (skip.length || struggling >= MASTERY.maxInFlight) return undefined;
+  const lastIntro = Math.max(0, ...demo.map((s) => s.introducedAt));
+  return l.recent.filter((a) => a.t > lastIntro).length >= MASTERY.stallAttempts ? next : undefined;
 }
 
 export function teachGame(unit: string): GameId {
@@ -30,6 +41,7 @@ export function teachGame(unit: string): GameId {
 
 /** Games that can actually build items for this skill with the child's current units. */
 export function gamesUsable(skill: string, l: Learner, known: Known): GameId[] {
+  const letter = skill.startsWith('L.') ? LETTER[skill.slice(2)] : undefined;
   return gamesFor(skill)
     .map((g) => g.id)
     .filter((g) => {
@@ -38,6 +50,9 @@ export function gamesUsable(skill: string, l: Learner, known: Known): GameId[] {
       if (g === 'syllableDJ' || g === 'secretPassword') return practiceable('CV', l, known);
       if (g === 'syllableTrain' || g === 'wordExplorer') return practiceable(skill, l, known);
       if (g === 'finalTransformer') return skill === 'FIN' ? practiceable('FIN', l, known) : known.has(skill);
+      if (g === 'balloonPop') return !!letter && !letter.final;
+      if (g === 'memoryMatch') return !!letter && !letter.final && !!keywordFor(letter.id);
+      if (g === 'missingLetter') return !!letter && WORDS.some((w) => w.firstLetter === letter.id && !w.units.includes('X.genuva'));
       return true;
     });
 }
@@ -73,7 +88,8 @@ export function practiceFocus(ctx: PlanCtx): string[] {
       const demoA = l.skills[a]?.how === 'demo' ? 0 : 1, demoB = l.skills[b]?.how === 'demo' ? 0 : 1;
       return demoA - demoB || (accuracy(l.skills[a]) ?? 0.5) - (accuracy(l.skills[b]) ?? 0.5);
     });
-  const higher = HIGHER.filter((s) => practiceable(s, l, ctx.known) && l.skills[s]?.status !== 'mastered')
+  // letter writing stays in regular practice even once WRITE is mastered: new letters keep coming
+  const higher = HIGHER.filter((s) => practiceable(s, l, ctx.known) && (s === 'WRITE' || l.skills[s]?.status !== 'mastered'))
     .slice(0, 3)
     .sort((a, b) => lastPracticed(l, a) - lastPracticed(l, b));
   const lettersKnown = [...ctx.known].filter((u) => u.startsWith('L.')).length;
@@ -104,7 +120,13 @@ export function planSession(ctx: PlanCtx): PlannedActivity[] {
   }
 
   const next = nextToIntroduce(ctx);
-  if (next) push(activity(next, ctx, 'teach', 'demo', [], teachGame(next)));
+  if (next) {
+    push(activity(next, ctx, 'teach', 'demo', [], teachGame(next)));
+    // a second new unit only for a child who already showed the taught ones are ready (never on day one)
+    const proven = Object.values(l.skills).some((s) => s.how === 'demo');
+    const second = maxActs >= 5 && proven ? nextToIntroduce(ctx, [next]) : undefined;
+    if (second) push(activity(second, ctx, 'teach', 'demo', [], teachGame(second)));
+  }
 
   const focus = practiceFocus(ctx);
   for (const s of focus) {
@@ -120,7 +142,7 @@ export function planSession(ctx: PlanCtx): PlannedActivity[] {
   return acts.slice(0, maxActs);
 }
 
-/** Free play from the map: the best skill for this game right now, or undefined if the game is still locked. */
+/** Free play from the map: the best skill for this game right now, or undefined if the child's units are not enough. */
 export function freePlaySpec(game: GameId, l: Learner, known: Known, rng: Rng): ActivitySpec | undefined {
   const def = GAME[game];
   const candidates = def.skills.flatMap((p) => (p.endsWith('*') ? [...known].filter((u) => u.startsWith(p.slice(0, -1))) : [p]))
@@ -128,6 +150,23 @@ export function freePlaySpec(game: GameId, l: Learner, known: Known, rng: Rng): 
   if (!candidates.length) return undefined;
   const weakest = rng.shuffle(candidates).sort((a, b) => (accuracy(l.skills[a]) ?? 0.5) - (accuracy(l.skills[b]) ?? 0.5))[0];
   return { game, skill: weakest, mode: 'independent', n: def.items };
+}
+
+/** Every game is open (v1.1). When the child's units are not enough for a game, the next spine units are lent to it
+    (spec.known) and a unit the child has not met yet starts with a show-me demo. */
+export function openPlaySpec(game: GameId, l: Learner, known: Known, rng: Rng, spine: string[]): ActivitySpec {
+  const direct = freePlaySpec(game, l, known, rng);
+  if (direct) return direct;
+  const ext = new Set(known);
+  const extra: string[] = [];
+  for (const u of spine) {
+    if (ext.has(u)) continue;
+    ext.add(u);
+    extra.push(u);
+    const s = freePlaySpec(game, l, ext, rng);
+    if (s) return { ...s, known: extra, mode: isUnit(s.skill) && !known.has(s.skill) && !l.skills[s.skill] ? 'demo' : s.mode };
+  }
+  return { game, skill: GAME[game].skills[0].replace('*', 'mem'), mode: 'independent', n: GAME[game].items, known: extra };
 }
 
 export const playedStoryToday = (l: Learner, now: number): boolean =>

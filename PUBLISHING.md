@@ -4,15 +4,16 @@ You (the AI agent) are helping the account owner publish a finished Hebrew readi
 is complete and tested. Your job is to **build it, test it on a real device, and publish it on Google Play**. Do not
 redesign or rewrite the app. Follow the steps in order and stop at every **ASK THE OWNER** point.
 
-The project is in `Butz_Hebrew_Reading_v1.0.0.zip` (this file is also in the zip as `PUBLISHING.md`).
+The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip as `PUBLISHING.md`).
 
 ## 0. What you are publishing
 
 - Expo SDK 58 / React Native 0.88 / TypeScript app. No server, no account, no ads, no purchases, no analytics. It
   works offline and stores everything on the device.
-- Android package id: `com.raviv.butz` (chosen by the owner). Version: `1.0.0`, `versionCode` 1, both in `app.json`.
-- Speech comes from the device's text-to-speech engine. On Android that is **Speech Services by Google** with the
-  **Hebrew** voice installed.
+- Android package id: `com.raviv.butz` (chosen by the owner). Version: `1.1.0`, `versionCode` 2, both in `app.json`.
+- Speech: recorded clips first (generated once with Microsoft's official Azure neural Hebrew voice, see §2b and
+  `docs/AUDIO.md`), otherwise the device's text-to-speech engine. On Android that is **Speech Services by Google** with
+  the **Hebrew** voice installed. The app is **quiet by default**: it speaks only when the child taps 👂 or 🔊.
 - The mascot's name is **בּוּץ with shuruk ("Butz")**, never בּוֹץ ("botz" = mud). The app already speaks it as
   `בּוּטְס` so TTS says "Butz". Keep the nikud in every store text.
 - Store assets are ready in `store/`: `play-icon-512.png`, `feature-graphic-1024x500.png`, and `screenshots/`
@@ -44,14 +45,30 @@ The project is in `Butz_Hebrew_Reading_v1.0.0.zip` (this file is also in the zip
 # unzip to a short path without spaces, e.g. C:\dev\butz or ~/dev/butz
 cd butz-hebrew-reading
 npm ci                 # installs node_modules inside the project (~1 minute)
-npm run check          # content validation + 39 unit tests + TypeScript; all must pass
+npm run check          # content validation + 45 unit tests + TypeScript; all must pass
 ```
 
-Optional: `npm run e2e` runs the 12 end-to-end tests. It needs Microsoft Edge installed (Playwright uses the
+Optional: `npm run e2e` runs the 14 end-to-end tests. It needs Microsoft Edge installed (Playwright uses the
 `msedge` channel).
 
 If you changed the package id, edit `app.json` → `expo.android.package` (and `expo.ios.bundleIdentifier` to match).
 Change nothing else in `app.json` unless a step below says so.
+
+## 2b. Correct pronunciation: generate the voice clips (strongly recommended before the store build)
+
+Device voices often mispronounce short pointed Hebrew. The project includes a generator that renders **every line the
+app can say** (about 2,800) with Microsoft's official Azure AI Speech neural Hebrew voice; the clips are bundled into the
+app and played instead of the device voice. **ASK THE OWNER** for an Azure Speech key + region (free tier F0 is enough;
+how to create one: `docs/AUDIO.md`). Never print or commit the key. Then:
+
+```bash
+# PowerShell: $env:AZURE_SPEECH_KEY='...'; $env:AZURE_SPEECH_REGION='westeurope'
+npm run audio          # 1.5-2.5 hours on the free tier (waits and retries by itself); rerun = only missing lines
+npm run check
+```
+
+Open `test-results/audio-review.html` and let the owner listen to a sample (letters, צירופים, the name בּוּץ = "Butz").
+If the owner has no key, the app still works with the device voice.
 
 ## 3. Quick look (optional)
 
@@ -81,13 +98,16 @@ When the build finishes, open the link on the Android device and install the APK
 report the results to the owner:
 
 - [ ] The first screen asks **בֵּן / בַּת** (boy/girl), then name and animal friend, then a short starting game.
-- [ ] Nothing is read aloud automatically when a screen opens. The 👂 button speaks the instructions.
-- [ ] Hebrew speech works. If it is silent, install the Google Hebrew voice (§1).
+- [ ] Nothing is read aloud by itself — not when a screen opens, not during games. 👂 speaks the instructions, 🔊 (it
+      wiggles on listening tasks) plays the sound or word, 💡 gives a hint.
+- [ ] Hebrew speech works when 🔊 is tapped. If it is silent, install the Google Hebrew voice (§1).
+- [ ] Map: every world is open. **סַדְנַת הַכְּתִיבָה** (writing workshop): write a letter with a finger from the red dot
+      along the grey path; the ink follows and the next letter comes.
 - [ ] Grown-ups area (⚙️ on Home): press and hold the lock button 3 seconds, then answer the addition question. Go
       to **בדיקת קול** (voice check) and press ▶ next to the name. It must sound like **"Butz"** (u as in "put"), not
       "botz". If it sounds wrong, tell the owner; a recorded clip can be added (`src/services/clips.ts`).
-- [ ] Play one full session from "מַמְשִׁיכִים!", open the sticker notebooks and the shop. Stickers animate and jump
-      when tapped.
+- [ ] Play one full session from "מַמְשִׁיכִים!", open the sticker notebooks and the shop (envelopes and notebooks start at
+      5 ⭐). Stickers animate and jump when tapped.
 
 ## 6. Privacy policy (required for a children's app)
 
@@ -102,7 +122,7 @@ is fine.
 • השם (לא חובה), הדמות וההתקדמות בלמידה נשמרים רק במכשיר עצמו ולא נשלחים לשום שרת.
 • אין באפליקציה פרסומות, רכישות, חשבונות משתמש, מעקב או כלי ניתוח (אנליטיקה).
 • האפליקציה אינה משתמשת במיקרופון, במצלמה או במיקום.
-• ההקראה נעשית באמצעות מנוע הדיבור (TTS) של מערכת ההפעלה. ייתכן שספק מערכת ההפעלה (למשל Google) מעבד את הטקסט המוקרא לפי מדיניות הפרטיות שלו.
+• ההקראה נעשית מהקלטות שנמצאות בתוך האפליקציה, ואם אין הקלטה — באמצעות מנוע הדיבור (TTS) של מערכת ההפעלה. ייתכן שספק מערכת ההפעלה (למשל Google) מעבד את הטקסט המוקרא לפי מדיניות הפרטיות שלו.
 • מחיקת האפליקציה או מחיקת פרופיל באזור ההורים מוחקת את כל המידע.
 לשאלות: <EMAIL>
 
@@ -113,8 +133,8 @@ Last updated: <DATE>
 • The optional name, avatar and learning progress are stored only on the device and are never sent to any server.
 • The app has no ads, no in-app purchases, no user accounts, no tracking and no analytics.
 • The app does not use the microphone, camera or location.
-• Speech is produced by the device's built-in text-to-speech engine; the operating-system provider (e.g. Google) may
-  process the spoken text under its own privacy policy.
+• Speech comes from recordings bundled in the app, or else from the device's built-in text-to-speech engine; the
+  operating-system provider (e.g. Google) may process the spoken text under its own privacy policy.
 • Uninstalling the app, or deleting a profile in the grown-ups area, deletes all data.
 Contact: <EMAIL>
 ```
@@ -159,12 +179,13 @@ Play Console → **Create app**:
 
 "קוראים עם בּוּץ" לוקחת ילדים בני 5–8 צעד אחר צעד: מצלילים והברות, דרך האותיות והניקוד, ועד קריאת מילים, משפטים וסיפורים — בקצב של כל ילד וילדה.
 
-● 18 משחקים קצרים ומשמחים: מגדלור הצלילים, מגנט הניקוד, רכבת ההברות, מאפיית המילים, בלש הסיפורים ועוד
+● 22 משחקים קצרים ומשמחים: מגדלור הצלילים, בלוני אותיות, זוגות של אותיות, מגנט הניקוד, רכבת ההברות, מאפיית המילים, בלש הסיפורים ועוד
+● סדנת כתיבה: כותבים את האותיות עם האצבע, לפי סדר הקווים והכיוון הנכון
 ● מעל 340 מילים עם תמונות, 72 משפטים ו־26 סיפורים — וכמעט אין חזרות, כי האפליקציה זוכרת מה כבר נלמד
-● מתאימה את עצמה: בדיקת פתיחה משחקית, תרגול חכם של מה שצריך, וחזרות כדי שהידע יישאר
-● הילד/ה משחקים לבד: מסך פשוט עם כפתור אחד גדול, ובלחיצה על 👂 בּוּץ מסביר כל דבר
+● מתאימה את עצמה: בדיקת פתיחה משחקית, תרגול חכם של מה שצריך, וחזרות כדי שהידע יישאר — וכל העולמות פתוחים
+● הילד/ה משחקים לבד, בשקט: בלחיצה על 👂 בּוּץ מסביר, ובלחיצה על 🔊 שומעים את הצליל או המילה
 ● פונה לבנים ולבנות בלשון המתאימה
-● מחברות מדבקות חיות ומונפשות שמרוויחים בהתמדה — בלי לחץ ובלי להפסיד כלום
+● מחברות מדבקות חיות ומונפשות שמרוויחים במשחק — בלי לחץ ובלי להפסיד כלום
 ● אזור הורים: התקדמות לפי תחומים, הגדרות נגישות, ניגודיות גבוהה, פחות תנועה ובחירת מה שכבר נלמד בבית הספר
 
 בלי פרסומות, בלי רכישות, בלי חשבון ובלי איסוף מידע. הכול נשמר רק במכשיר ועובד גם בלי אינטרנט.
@@ -191,7 +212,7 @@ Play Console → **Create app**:
 
 1. Make the change. Run `npm run check` (and `npm run e2e` if Edge is available).
 2. In `app.json`, increase `expo.android.versionCode` by 1 (**required for every upload**) and update `expo.version`
-   (e.g. `1.0.1`).
+   (e.g. `1.1.1`). If content changed, rerun `npm run audio` (only new lines are generated).
 3. `npx eas-cli@latest build -p android --profile production`, then upload to Play (or use `eas submit`).
 
 ## 10. Do not change without the owner
@@ -208,7 +229,8 @@ Play Console → **Create app**:
 |---------|-----|
 | `npm ci` fails | Use Node 24+. Delete `node_modules` and retry. Do not switch to `npm install` unless the lock file is the problem. |
 | Build fails on EAS | Run `npx expo-doctor` and `npx expo install --check`, then fix what they report (SDK-compatible versions only). |
-| No speech on the device | Install the Hebrew voice in Google's text-to-speech settings, and turn up media volume. |
+| No speech on the device | Speech plays only when 🔊 / 👂 is tapped (by design). Lines without a generated clip need the Hebrew voice in Google's text-to-speech settings; turn up media volume. |
+| A word or sound is pronounced wrongly | Generate the clips (§2b). If a clip itself is wrong, fix the line's text/`say` or add a manual recording (`docs/AUDIO.md`). |
 | Play rejects the package name | Pick a new unique `android.package` before the **first** upload, then rebuild. |
 | Play says the version code was already used | Increase `versionCode` in `app.json` and rebuild. |
 | Play asks about the AD_ID permission | Answer that the app does not use the advertising ID (it is blocked in `app.json`). |

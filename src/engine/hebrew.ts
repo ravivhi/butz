@@ -72,11 +72,11 @@ export const LETTERS: LetterInfo[] = [
   { id: 'dalet', char: 'ד', base: 'ד', name: 'דָּלֶת', sound: 'd', say: 'דָּה' },
   { id: 'he', char: 'ה', base: 'ה', name: 'הֵא', sound: 'h', say: 'הָה' },
   { id: 'vav', char: 'ו', base: 'ו', name: 'וָו', sound: 'v', say: 'וָה' },
-  { id: 'zayin', char: 'ז', base: 'ז', name: 'זַיִן', sound: 'z', say: 'זָה' },
+  { id: 'zayin', char: 'ז', base: 'ז', name: 'זַיִן', sound: 'z', say: 'זָא' },
   { id: 'het', char: 'ח', base: 'ח', name: 'חֵית', sound: 'kh', say: 'חָה' },
   { id: 'tet', char: 'ט', base: 'ט', name: 'טֵית', sound: 't', say: 'טָה' },
   { id: 'yod', char: 'י', base: 'י', name: 'יוֹד', sound: 'y', say: 'יָה' },
-  { id: 'kaf', char: 'כּ', base: 'כ', name: 'כָּף', sound: 'k', say: 'כָּה' },
+  { id: 'kaf', char: 'כּ', base: 'כ', name: 'כָּף', sound: 'k', say: 'קָה' },
   { id: 'khaf', char: 'כ', base: 'כ', name: 'כָף', sound: 'kh', say: 'חָה', finalForm: 'finalKhaf' },
   { id: 'finalKhaf', char: 'ך', base: 'ך', name: 'כָף סוֹפִית', sound: 'kh', say: 'חָה', final: 'khaf' },
   { id: 'lamed', char: 'ל', base: 'ל', name: 'לָמֶד', sound: 'l', say: 'לָה' },
@@ -86,16 +86,16 @@ export const LETTERS: LetterInfo[] = [
   { id: 'finalNun', char: 'ן', base: 'ן', name: 'נוּן סוֹפִית', sound: 'n', say: 'נָה', final: 'nun' },
   { id: 'samekh', char: 'ס', base: 'ס', name: 'סָמֶךְ', sound: 's', say: 'סָה' },
   { id: 'ayin', char: 'ע', base: 'ע', name: 'עַיִן', sound: 'ʔ', say: 'עָה' },
-  { id: 'pe', char: 'פּ', base: 'פ', name: 'פֵּא', sound: 'p', say: 'פָּה' },
-  { id: 'fe', char: 'פ', base: 'פ', name: 'פֵא', sound: 'f', say: 'פָה', finalForm: 'finalFe', needsRecording: true },
-  { id: 'finalFe', char: 'ף', base: 'ף', name: 'פֵא סוֹפִית', sound: 'f', say: 'פָה', final: 'fe', needsRecording: true },
+  { id: 'pe', char: 'פּ', base: 'פ', name: 'פֵּא', sound: 'p', say: 'פָּא' },
+  { id: 'fe', char: 'פ', base: 'פ', name: 'פֵא', sound: 'f', say: 'פָא', finalForm: 'finalFe', needsRecording: true },
+  { id: 'finalFe', char: 'ף', base: 'ף', name: 'פֵא סוֹפִית', sound: 'f', say: 'פָא', final: 'fe', needsRecording: true },
   { id: 'tsadi', char: 'צ', base: 'צ', name: 'צָדִי', sound: 'ts', say: 'צָה', finalForm: 'finalTsadi' },
   { id: 'finalTsadi', char: 'ץ', base: 'ץ', name: 'צָדִי סוֹפִית', sound: 'ts', say: 'צָה', final: 'tsadi' },
   { id: 'qof', char: 'ק', base: 'ק', name: 'קוֹף', sound: 'k', say: 'קָה' },
   { id: 'resh', char: 'ר', base: 'ר', name: 'רֵישׁ', sound: 'r', say: 'רָה' },
-  { id: 'shin', char: 'שׁ', base: 'ש', name: 'שִׁין', sound: 'sh', say: 'שָׁה' },
+  { id: 'shin', char: 'שׁ', base: 'ש', name: 'שִׁין', sound: 'sh', say: 'שָׁא' },
   { id: 'sin', char: 'שׂ', base: 'ש', name: 'שִׂין', sound: 's', say: 'סָה' },
-  { id: 'tav', char: 'ת', base: 'ת', name: 'תָּו', sound: 't', say: 'תָּה' },
+  { id: 'tav', char: 'ת', base: 'ת', name: 'תָּו', sound: 't', say: 'תָּא' },
 ].map((l) => ({ ...l, char: nfc(l.char), name: nfc(l.name), say: nfc(l.say) }));
 
 export const LETTER: Record<string, LetterInfo> = Object.fromEntries(LETTERS.map((l) => [l.id, l]));
@@ -163,6 +163,8 @@ const VOWEL_SOUND: Partial<Record<VowelMark, VowelId>> = {
   qamats: 'a', patah: 'a', hatafPatah: 'a', hiriq: 'i', tsere: 'e', segol: 'e', hatafSegol: 'e', holam: 'o', hatafQamats: 'o', qubuts: 'u',
   qamatsQatan: 'o',
 };
+/** Vowel sound of a cluster's vowel mark (undefined for no vowel / shva). */
+export const vowelOfMark = (m: VowelMark | null): VowelId | undefined => (m ? VOWEL_SOUND[m] : undefined);
 
 /** Written צירוף: letter + sign (NFC). */
 export function cvText(letterId: string, signId: string): string {
@@ -174,6 +176,9 @@ export function cvSay(letterId: string, vowel: VowelId): string {
   const l = LETTER[letterId];
   // Speak fricatives through their sound twin so TTS cannot read ב/כ/שׂ as בּ/כּ/שׁ.
   const twin: Record<string, string> = { vet: 'ו', khaf: 'ח', sin: 'ס' };
+  // /a/ syllables that are also common words with another sound (זה "ze", כה "ko", פה "po", שה "se", תה "te"):
+  // the letter's own sound form (זָא, קָה, פָּא, פָא, שָׁא, תָּא) cannot be read as that word.
+  if (vowel === 'a' && ['zayin', 'kaf', 'pe', 'fe', 'shin', 'tav'].includes(l.id)) return l.say;
   const head = twin[l.id] ?? l.char;
   const tail: Record<VowelId, string> = { a: MARK.qamats + 'ה', i: MARK.hiriq + 'י', e: MARK.segol + 'ה', o: 'ו' + MARK.holam, u: 'ו' + MARK.dagesh };
   return nfc(head + tail[vowel]);

@@ -37,7 +37,7 @@ for (const [tag, viewport] of [['tablet', { width: 1024, height: 768 }], ['phone
   await shot('05-map');
   await page.evaluate(() => window.__butz.go({ name: 'world', world: 'workshop' }));
   await shot('06-world');
-  for (const g of ['soundLighthouse', 'letterDetective', 'nikudMagnet', 'syllableDJ', 'secretPassword', 'syllableTrain', 'wordBakery', 'wordExplorer', 'finalTransformer', 'wordCollector', 'syllableHop', 'soundSafari', 'phraseTrain', 'echoReader', 'storyTime', 'storyDetective']) {
+  for (const g of ['letterTrace', 'balloonPop', 'memoryMatch', 'missingLetter', 'soundLighthouse', 'letterDetective', 'nikudMagnet', 'syllableDJ', 'secretPassword', 'syllableTrain', 'wordBakery', 'wordExplorer', 'finalTransformer', 'wordCollector', 'syllableHop', 'soundSafari', 'phraseTrain', 'echoReader', 'storyTime', 'storyDetective']) {
     await page.evaluate((game) => { window.__butz.go({ name: 'home' }); window.__butz.go({ name: 'play', source: 'free', game }); }, g);
     await page.waitForTimeout(900);
     if (await page.getByTestId('go').isVisible().catch(() => false)) await page.getByTestId('go').click();

@@ -1,6 +1,13 @@
 # קוֹרְאִים עִם בּוּץ — Reading with Butz
 
-**Product spec v1.1 (2026-11-25). Source of truth for agents building this app.**
+**Product spec v1.2 (2026-11-24). Source of truth for agents building this app.**
+
+> **v1.2 changes (owner feedback after trying v1.1):** (1) the shop starts at **5 stars** (envelopes and notebooks, §10);
+> (2) **nothing is spoken automatically** — the child taps 👂 / 🔊 / 💡 (R-G5); a parent switch brings read-aloud back;
+> (3) **every world and game is open** from the start, progression is faster and can never stall (R-J1, §7.3);
+> (4) new games, mostly for **writing and recognising letters**: the Writing Workshop (`letterTrace`), Letter Balloons,
+> Letter Pairs and The Missing Letter (§9); (5) pronunciation: TTS-safe spellings, and a generator that renders a
+> **neural-voice clip for every spoken line** once the owner adds an Azure Speech key (R-T4, §3.3, docs/AUDIO.md).
 
 > The mascot is **בּוּץ** — with **shuruk** ("Butz"), never בּוֹץ with holam ("botz", which means *mud*). Display it
 > pointed; speech always goes through `BUTZ_SAY` (`src/engine/phrases.ts`), a spelling TTS engines read with /u/ (R-H11).
@@ -129,6 +136,11 @@ letter so the TTS produces a clean syllable.
 Letter *sounds* are spoken as the /a/ syllable (`מָה`), and fricative variants via their sound twin (ב → `וָה`,
 כ → `חָה`, שׂ → `סָה`). פ (fe) has no twin and is flagged `needsRecording`. Any item can override with `say`.
 
+**No homographs (v1.2).** Voices often ignore nikud on a short string that is also a common word, so an /a/ syllable that
+spells one is written another way: `זָא` not זָה ("ze"), `קָה` not כָּה ("ko"), `פָּא` / `פָא` not פָּה ("po"), `שָׁא` not שָׁה ("se"),
+`תָּא` not תָּה ("te"). Open one-letter syllables in word games use the same forms (`speakSyllable` → `cvSay`). The real fix
+is audio that does not guess: every spoken line has a generated neural-voice clip (R-T4) that overrides device TTS.
+
 ## 4. Users, platform and constraints
 
 | ID | Requirement |
@@ -139,7 +151,7 @@ Letter *sounds* are spoken as the /a/ syllable (`מָה`), and fricative variant
 | R-T1 | **Platform: native mobile via Expo (React Native + TypeScript)**, iOS and Android, tablet-first, phone supported, portrait and landscape. The same code runs on the web (used for automated tests and as a bonus web version). |
 | R-T2 | **Runs in Expo Go** during development: no custom native modules. Only Expo SDK modules + pure JS libraries. |
 | R-T3 | **Offline.** Everything works with no network after install (TTS uses the device's Hebrew voice). |
-| R-T4 | **Audio.** Device Hebrew TTS via `expo-speech` (prefer natural/enhanced voices), plus per-item recorded clips that override TTS when present (`assets/audio/`). Sound effects are bundled WAV files. |
+| R-T4 | **Audio.** Clips first: `npm run audio` (scripts/make-audio.ts) renders **every line the app can say** (`allSpokenTexts()`, ≈ 2,800 lines) with the official Azure AI Speech neural Hebrew voice into `assets/audio/` + `src/services/clips.generated.ts`; hand recordings (`MANUAL` in clips.ts) win over generated ones. Lines without a clip fall back to device Hebrew TTS via `expo-speech` (prefer natural/enhanced voices). Sound effects are bundled WAV files. Unofficial TTS endpoints are not used. |
 | R-T5 | **RTL.** All layouts are right-to-left regardless of the device locale (`I18nManager.isRTL` may be either; layout helpers handle both). |
 | R-T6 | **Fonts.** Reading text: *Noto Sans Hebrew* (clean print letters, correct nikud placement). UI: *Rubik*. Word Collector also uses a serif Hebrew font for font variety. All OFL. |
 | R-T7 | **Performance.** First interaction < 3 s on a mid-range phone; every tap gets visual feedback within 100 ms. |
@@ -147,12 +159,13 @@ Letter *sounds* are spoken as the /a/ syllable (`מָה`), and fricative variant
 ## 5. The journey
 
 Eight themed worlds on one right-to-left map, plus a parallel Story Time and an optional extension world. The child never
-has to pick a world: **Continue** picks the next activity. The map shows progress and allows free play in unlocked worlds.
+has to pick a world: **Continue** picks the next activity. The map shows every world and allows free play in all of them.
 
 | # | World ID | Hebrew (spoken) | Skill focus | Phase |
 |---|----------|-----------------|-------------|-------|
 | 0 | `forest` | יַעַר הַצְּלִילִים — The Sound Forest | phonological awareness | MVP |
-| 1 | `island` | אִי הָאוֹתִיּוֹת — Letter Island | letter ↔ sound, letter shapes | MVP |
+| 1 | `island` | אִי הָאוֹתִיּוֹת — Letter Island | letter ↔ sound, letter shapes | MVP (4 games) |
+| 1b | `writing` | סַדְנַת הַכְּתִיבָה — The Writing Workshop | writing letters (stroke order and direction) | v1.2 |
 | 2 | `workshop` | סַדְנַת הַנִּקּוּד — The Nikud Workshop | vowel signs, צירופים | MVP |
 | 3 | `train` | רַכֶּבֶת הַמִּלִּים — The Word Train | blending, short decodable words | MVP |
 | 4 | `mountain` | הַר הַמִּלִּים — The Word Mountain | finals, shva, quiet letters, long words | MVP (1 game) |
@@ -165,9 +178,10 @@ has to pick a world: **Continue** picks the next activity. The map shows progres
 > Naming note: the blueprint called world 4 "The Word Explorer", which collides with the Word Train game "Word Explorer".
 > World 4 is **The Word Mountain**; `wordExplorer` is only the game.
 
-**Unlocking (R-J1):** a world unlocks when any skill it practises becomes available (its prerequisites are introduced).
-The Sound Forest is open at start but is not mandatory: placement can skip it (R-J2). Locked worlds show a padlock and say
-"עוֹד מְעַט נַגִּיעַ לְכָאן!" (we'll get here soon) when tapped (R-J3).
+**Everything is open (R-J1, v1.2).** Every world and game can be played from the map from day one — children got stuck
+behind padlocks. When the child's units are not enough for a game, free play borrows the next units of the spine for that
+activity (`planner.openPlaySpec`), and a unit the child has never met starts with its "Show me". Continue still follows
+the spine (§7). The Sound Forest is not mandatory: placement can skip it (R-J2). (R-J3, the padlock line, is retired.)
 
 ### 5.1 The curriculum spine (default, configurable — R-H10)
 
@@ -287,9 +301,15 @@ Each activity is ≈ 5 items (1 guided + 4 independent) and ≈ 1.5-2 minutes.
 
 ### 7.3 When to introduce the next spine entry (R-A3)
 
-Introduce the next entry when every unit the app is **teaching** (introduced by a demonstration, not by placement or the
-parent) has ≥ 70 % over its last 6 independent attempts (or is mastered), **and** fewer than 3 such units are in flight.
-Never introduce more than **one** new unit per session.
+Introduce the next entry when the (up to) 3 most recently **taught** units (introduced by a demonstration, not by
+placement or the parent) are each going fine: ≥ 60 % over their last 4 independent answers (at least 3 answers), or
+mastered. Older weak units keep being practised and remediated but never block new content, and nothing waits for
+mastery (v1.1 waited for 3 units to master — children got stuck for weeks). A teach activity aims 80 % of its items at
+the new unit. A child who already proved ready may get **two** new units in a session of ≥ 5 activities (never on day one).
+**Never stuck (v1.2):** if one or two of those units still struggle, the next unit comes anyway after 20 answers without
+a new one (`MASTERY.stallAttempts`, about a session); the parent report has "להתקדם עכשיו" to introduce it in the next
+session (`learner.pushNext`). Simulated pace (20 daily 8-minute sessions): ≈ 19 units at 90 % accuracy, ≈ 12 at 70 %,
+≈ 7 at 50 %. Letter writing (`WRITE`) is a standing practice skill, so sessions regularly include the Writing Workshop.
 
 ### 7.4 Remediation rules (R-A4)
 
@@ -318,23 +338,25 @@ Never introduce more than **one** new unit per session.
 ### 8.1 Round structure (R-G1) — every game, same rhythm
 
 1. **Mission card** — silent: the game's icon and name, Butz (the owl mascot) and a 👂 button. Tapping 👂 makes Butz say
-   the goal in the child's grammatical gender ("הַקְשֵׁב לַמִּלָּה, וּמְצָא…" / "הַקְשִׁיבִי לַמִּלָּה, וּמִצְאִי…"); the 👂
-   wiggles the first time a game is played. ▶ starts. 👂 stays in the game header (R-G5).
-2. **Show me** — first time a skill is met (or after remediation): Butz demonstrates one item (animation + speech).
+   the goal in the child's grammatical gender ("גַּע בָּרַמְקוֹל וְהַקְשֵׁב לַמִּלָּה…" / "גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי…");
+   the 👂 wiggles the first time a game is played. ▶ starts. 👂 stays in the game header (R-G5).
+2. **Show me** — first time a skill is met (or after remediation): the demonstration card with a wiggling 🔊; Butz explains
+   when the child taps it, and "נְנַסֶּה" moves on.
 3. **Let's try together** — 1 guided item: hint offered after the first miss.
-4. **Your turn** — 3-4 independent items.
-5. **Helpful feedback** — correct: chime + short praise + sparkle; wrong: soft "boop", the wrong option fades, Butz gives a
-   hint ("זֶה עוֹשֶׂה מָה… נְנַסֶּה שׁוּב?"). Second miss: Butz shows the answer, the child taps it (logged `help: 2`).
-6. **Celebration** — stars fly to the counter; progress dots fill.
+4. **Your turn** — 3-4 independent items. On listening items the header 🔊 wiggles until tapped.
+5. **Helpful feedback** — silent: correct = chime + a big popping emoji + sparkle; wrong = soft "boop", the option shakes
+   and one wrong option disappears (help 1); a second miss highlights the answer (help 2). 💡 speaks the hint.
+6. **Celebration** — stars fly to the counter; progress dots fill; the next activity starts by itself after a moment.
 
 Progress dots (not numbers) show items left. An **X** in the corner leaves at any time (no confirmation for the child; the
 activity is saved as partial).
 
-**R-G5 Instructions on demand.** Instructions, greetings, screen names and explanations are **never spoken
-automatically** — hearing them every time is annoying. Every child screen that needs explaining has a 👂 button (Home,
-mission card + game header, notebooks, shop, starting check, session end). Spoken automatically are only: the task
-stimulus itself (the sound/word to find, option names in listening tasks), Story Time narration, a new unit's "Show me"
-demonstration, and short feedback (praise, a gentle retry line, the answer after a second miss).
+**R-G5 Nothing is spoken unless the child asks (v1.2).** By default the app says nothing by itself: no instructions,
+stimuli, praise, demonstrations, story narration or end lines. Sound comes only from a tap on a speaking control: 👂
+(instructions), 🔊 (the task's sound/word, a story page, the model reading, a demonstration), 💡 (hint), the sound keys
+of Secret Password, a train carriage in guided mode, and the parent's voice check. Feedback is sound effects and
+animation. Parent setting **"הקראה אוטומטית"** (`settings.autoSpeak`, off by default) restores the v1.1 behaviour: stimuli,
+demonstrations, story narration and spoken praise/hints play automatically.
 
 ### 8.2 Help levels (R-G2)
 
@@ -350,8 +372,10 @@ demonstration, and short feedback (praise, a gentle retry line, the answer after
 |----------|--------------|--------|
 | `M.listenChoose` | hear prompt → tap one of 2-4 tiles (letters, צירופים, words or pictures) | soundSafari, soundLighthouse, syllableDJ, robotMixer, wordCollector, storyTime questions |
 | `M.readChoose` | read a written stimulus (no audio) → tap the matching picture/sound | wordExplorer, secretPassword, syllableTrain, storyDetective |
-| `M.findTap` | tap every target in a grid | letterDetective, patternDetective |
-| `M.build` | tap pieces in order to fill slots (drag optional, never required) | nikudMagnet, wordBakery, finalTransformer, missingSound |
+| `M.findTap` | tap every target in a grid | letterDetective, balloonPop (floating balloons that pop), patternDetective |
+| `M.trace` | drag a finger along each stroke from the red start dot, in writing order and direction | letterTrace |
+| `M.memory` | flip two cards; a letter and a picture that starts with it stay open | memoryMatch |
+| `M.build` | tap pieces in order to fill slots (drag optional, never required) | nikudMagnet, wordBakery, finalTransformer, missingLetter, missingSound |
 | `M.count` | tap one stone per syllable heard | syllableHop |
 | `M.sequence` | tap cards in story order | storyPuzzle, phraseTrain (v1) |
 | `M.sort` | tap an item, then a basket | nikudSorter, soundTwins, prefixPuzzle |
@@ -365,8 +389,9 @@ A generator is pure: `generate(ctx) => Item[]` where `ctx` holds the learner sna
 
 - Tap targets ≥ 64 dp (≥ 88 dp for main choices on tablets); 16 dp minimum gap.
 - One instruction at a time; at most 4 options on screen (except Letter Detective's grid).
-- Every prompt can be replayed with the speaker button; tapping a *picture* option speaks its word (pictures are not
-  reading), tapping a *written* option in a reading task does **not** speak it (R-H4).
+- Every prompt is played with the speaker button (nothing plays by itself, R-G5); tapping a *picture* option speaks its
+  word only in read-aloud mode (pictures are not reading), tapping a *written* option in a reading task does **not**
+  speak it (R-H4).
 - No timers, countdowns or speed scoring anywhere.
 - Animations ≤ 600 ms; reduced-motion setting replaces them with fades.
 
@@ -404,11 +429,31 @@ A big target letter (spoken by sound and name) and a 3×3 to 4×4 grid of letter
 magnifying glass. Hard mode adds visually similar letters and two fonts.
 AC: 2-4 targets per grid; wrong taps wobble but do not end the round; round ends when all targets found; 3 grids.
 
+**G-06b `balloonPop` — בָּלוֹנֵי אוֹתִיּוֹת — Letter Balloons** · v1.2 · `L.*` (shape) · `M.findTap`
+The target letter is shown at the top; 8 bobbing balloons carry letters (3 of them the target, look-alikes in hard mode).
+Tap only the target's balloons to pop them. AC: wrong balloons shake; 2 rounds; never a final form.
+
+**G-06c `memoryMatch` — זוּגוֹת שֶׁל אוֹתִיּוֹת — Letter Pairs** · v1.2 · `L.*` (letter ↔ first sound) · `M.memory`
+A memory game: 4 letters (3 with "fewer choices") and a picture word starting with each. Flip two cards; a matching
+letter + picture stay open. AC: letters on one board never share a sound and pictures are distinct (R-H2); mismatches are
+exploration, not errors (logged as supported practice, `help: 1`); 2 boards.
+
 **G-07 `buildALetter` — סַדְנַת הָאוֹתִיּוֹת — Build-a-Letter** · v1 · `LN.*`, shape · tracing with a finger along stroke
-paths.
+paths. **Shipped in v1.2 as `letterTrace` in the Writing Workshop (below).**
 
 **G-08 `firstSoundMarket` — שׁוּק הַצְּלִיל הָרִאשׁוֹן — The First-Sound Market** · v1 · `L.*` · `M.sort`
 Hear a word, put its picture in the basket of its first letter (2-3 baskets).
+
+### World 1b — The Writing Workshop (`writing`) · v1.2
+
+**G-07w `letterTrace` — כּוֹתְבִים אוֹתִיּוֹת — Writing Letters** · `WRITE` · `M.trace`
+A 300×300 writing board with the two guide lines. The letter's strokes (print shapes from the owner's *Hebrew_Letters*
+app, `src/engine/strokes.ts`; final forms added) are traced one by one: a numbered red dot marks where each stroke
+starts, and the finger must pass the stroke's checkpoints **in order** (that teaches direction) — a fast finger may skip a
+few, a scribble elsewhere writes nothing. Ink follows the finger; a finished stroke pops. Guides fade over the activity:
+item 1 a thick grey path with an animated yellow ball showing the way, item 2 dots, item 3 a faint ghost. 👀 replays the
+way, ↩️ restarts, 💡 brings the full guide back. Letters: the child's letters (least recently written first), else the
+first spine letters; בּ/ב share one shape. AC: 3 letters per activity; logged as skill `WRITE`.
 
 ### World 2 — The Nikud Workshop (`workshop`)
 
@@ -446,6 +491,10 @@ AC: blocks sit right-to-left; a wrong block bounces back with a hint; undo; 4 it
 
 **G-15 `missingSound` — הַצְּלִיל הֶחָסֵר — Rescue the Missing Sound** · v1 · `CV`, `W*` · `M.build`
 A word with a missing letter or vowel sign; choose the missing piece.
+
+**G-15a `missingLetter` — הָאוֹת הַחֲסֵרָה — The Missing Letter** · v1.2 · `L.*` · `M.build`
+A picture and its word with the **first letter** missing; the options are letters carrying the same vowel sign, so only
+the letter differs. 🔊 says the word. AC: option letters have distinct sounds (R-H2); 4 items.
 
 **G-16 `wordExplorer` — מְגַלֶּה הַמִּלִּים — The Word Explorer** · MVP · `W1`-`W3` (transfer) · `M.readChoose`
 A new, never-answered decodable word on a treasure map; the child taps the matching picture (3). After answering, the word
@@ -525,7 +574,7 @@ AC: once per day in Continue; also available from the map any time; stories are 
 
 ### 10.1 Stars (R-R1)
 
-Stickers must feel earned: they take **a lot of practice** (`economy.ts`).
+Stickers are within reach (v1.2: the owner found v1.1's prices too hard) (`economy.ts`).
 
 | Action | Stars |
 |--------|-------|
@@ -534,11 +583,11 @@ Stickers must feel earned: they take **a lot of practice** (`economy.ts`).
 | Finish a review activity | +1 |
 | A skill becomes mastered | +3 (with a special cheer) |
 | Finish the starting check | 10 (once) |
-| Open a surprise envelope | −(20 + 2 × stickers already collected), at most −60 |
-| Unlock a new notebook | −50 |
+| Open a surprise envelope | −(5 + 1 per 3 stickers already collected), at most −25 |
+| Unlock a new notebook | −(5 + 5 per notebook already bought), at most −40 |
 
-So the first sticker takes ≈ 10-15 activities (2-3 sessions) and later ones up to ≈ 30-40 activities. Stars are never lost
-by mistakes. Tune with real children.
+So the starting check alone buys the first two stickers, and later ones take about one session each. Stars are never
+lost by mistakes. Tune with real children.
 
 ### 10.2 Sticker notebooks (R-R2)
 
@@ -565,9 +614,10 @@ notebook gets a golden trophy sticker and the next envelope fills another owned 
 
 ### 10.3 The shop (R-R4)
 
-The surprise envelope (price from §10.1) and the notebooks for the child's gender (50 ⭐) — that is all. No real money,
-no ads, no pay-to-win, no leaderboard, no streak pressure, no loss of rewards for breaks or mistakes. Too few stars →
-Butz says how many more are needed, kindly ("צָרִיךְ עוֹד 12 כּוֹכָבִים. בּוֹאִי נְשַׂחֵק!").
+The surprise envelope and the notebooks for the child's gender (prices from §10.1, shown on each item) — that is all.
+No real money, no ads, no pay-to-win, no leaderboard, no streak pressure, no loss of rewards for breaks or mistakes. Too
+few stars → a soft "boing" and the ⭐ counter (spoken "צָרִיךְ עוֹד 3 כּוֹכָבִים…" only with read-aloud on). A locked notebook in
+"My notebooks" leads to the shop.
 
 ## 11. Navigation, parent area, accessibility, privacy
 
@@ -575,8 +625,8 @@ Butz says how many more are needed, kindly ("צָרִיךְ עוֹד 12 כּוֹ
 
 - **Home** (R-N1): avatar + name, **one huge Continue button** (Butz + ▶ + 👂), the newest stickers alive, and medium
   buttons: **Map** 🗺️, **My notebooks** 📒 and **Sticker shop** 🛍️. Star counter; tiny parent gear (gated).
-- Every button **speaks its label** when tapped; screens explain themselves only when 👂 is tapped (R-N2, R-G5).
-- **Map** (R-N3): islands along a path that starts on the right; locked worlds show a padlock.
+- Buttons do **not** speak their labels (v1.2); screens explain themselves only when 👂 is tapped (R-N2, R-G5).
+- **Map** (R-N3): islands along a path that starts on the right; every world is open (R-J1).
 - **Address** (R-N7): Butz speaks to the child in the grammatical gender chosen at setup (גַּע/גְּעִי, אַלּוּף/אַלּוּפָה);
   all gendered lines live in `phrases.ts` and the missions in `curriculum.ts` (`mission: [boy, girl]`).
 - **Consistency** (R-N4): same characters, colors and button positions everywhere; colour is never the only signal
@@ -594,12 +644,14 @@ Butz says how many more are needed, kindly ("צָרִיךְ עוֹד 12 כּוֹ
 - **Profiles** (R-PA3): several children on one device; switch from the home screen avatar.
 - **Progress report** (R-PA4): per strand (Letters & sounds · Nikud & צירופים · Blending words · Sight words ·
   Fluency · Listening comprehension · Reading comprehension) a band from §6.3, per-letter and per-vowel grid,
-  confusions (e.g. "ב ↔ כ"), last 7 days activity, and "what we'll practise next". Clearly labelled *learning
+  confusions (e.g. "ב ↔ כ"), last 7 days activity, and "what we'll practise next" with the next unit and a
+  **"להתקדם עכשיו"** button that introduces it in the next session (§7.3). Clearly labelled *learning
   observations, not a diagnosis*.
-- **Settings** (R-PA5): sound effects, speech rate (slow / normal), session length, text size (100 / 125 / 150 %),
-  high contrast, reduced motion, fewer choices, letter/vowel order preset, "learned at school" units, re-run the
-  starting check, reset progress (double confirm).
-- **Voice check** (R-PA6): the mascot's name first (it must sound "Butz"), then a list of items with ▶ and 👎. A 👎
+- **Settings** (R-PA5): **read-aloud** (`autoSpeak`, off by default, R-G5), sound effects, speech rate (slow / normal),
+  session length, text size (100 / 125 / 150 %), high contrast, reduced motion, fewer choices, letter/vowel order preset,
+  "learned at school" units, re-run the starting check, reset progress (double confirm).
+- **Voice check** (R-PA6): the device voice in use and **how many lines have a generated clip** ("הקלטות באפליקציה:
+  N מתוך M"), the mascot's name (it must sound "Butz"), then a list of items with ▶ and 👎. A 👎
   marks the item's audio as wrong on this device; such items
   are excluded from tasks where the audio is the stimulus until a recording exists. (v1: record the parent's own voice
   for an item.)
@@ -647,17 +699,20 @@ src/engine/                  PURE TypeScript (no React/RN imports) — node-test
   planner.ts                 session plan, next unit to teach, free-play spec, remediation rules
   placement.ts               starting check state machine
   generators.ts              one generator per game: (spec, ctx) → items
+  strokes.ts                 letter stroke paths (writing board 300×300) + checkpoint sampler
+  spoken.ts                  allSpokenTexts(): every line the app can say (audio generator input)
   economy.ts / report.ts     stars, envelopes, notebooks / parent report model
   validate.ts, *.test.ts     content invariants, unit tests (node --test)
-src/services/                speech.ts (TTS + recorded clips + voice pick), clips.ts, sfx.ts (+ haptics)
+src/services/                speech.ts (clips first, else TTS + voice pick), clips.ts (+ clips.generated.ts), sfx.ts
 src/state/store.ts           profiles, settings, persistence, navigation stack
-src/ui/                      theme.ts (palette, fonts, scaling, RTL row), kit.tsx (shared components, 👂 HelpButton),
-                             Butz.tsx (SVG mascot + game art), LiveSticker.tsx (animated stickers)
+src/ui/                      theme.ts (palette, fonts, scaling, RTL row), kit.tsx (shared components, 👂 HelpButton,
+                             🔊 ListenButton, Pop praise), Butz.tsx (SVG mascot + game art), LiveSticker.tsx
 src/games/                   GameHost.tsx (round structure §8.1) + mechanics.tsx (all mechanics)
 src/screens/                 Home (+Setup), Play (+SessionEnd, Placement), Map (+World), Stickers, Parent (+Gate)
-assets/                      app icons + splash (scripts/make-icons.mjs), sfx (scripts/make-sfx.mjs)
+assets/                      app icons + splash (scripts/make-icons.mjs), sfx (scripts/make-sfx.mjs),
+                             audio/ (generated neural-voice clips, scripts/make-audio.ts — docs/AUDIO.md)
 store/                       Google Play icon 512×512 and feature graphic 1024×500 (scripts/make-icons.mjs)
-scripts/                     make-icons.mjs, make-sfx.mjs, validate-content.ts, serve.mjs, shots.mjs
+scripts/                     make-icons.mjs, make-sfx.mjs, make-audio.ts, validate-content.ts, serve.mjs, shots.mjs
 tests/e2e/                   Playwright specs (web)
 eas.json                     EAS Build profiles (preview = APK, production = Play app bundle)
 ```
@@ -725,6 +780,7 @@ interface Item {            // produced by generators, consumed by mechanics
 | Release | Content | Purpose |
 |---------|---------|---------|
 | **MVP** | Placement, Continue planner, Sound Forest (3 incl. Robot Mixer), Letter Island (2), Nikud Workshop (3), Word Train (3), Final Letter Transformer, Word Collector, Echo Reader, Phrase Train, Story Puzzle, Story Detective (= 17 games), Story Time, 16 gendered sticker notebooks (480 live stickers) + shop, gender-first setup, parent area, voice check, 340 words / 72 sentences / 26 stories | prove the learning loop: letters → צירופים → decoding, with comprehension in parallel |
+| **v1.2** (this) | Writing Workshop (`letterTrace`), Letter Balloons, Letter Pairs, The Missing Letter (= 21 games + Story Time); silent by default; all worlds open; never-stuck progression; 5-star shop; neural audio pipeline | owner feedback: too hard to buy, too much talking, stuck, needs letter writing, pronunciation |
 | **v1** | Sound Twins, Build-a-Letter, First-Sound Market, Nikud Sorter, Missing Sound, Shva Submarine, AHVY Detectives, Long-Word Maze, Story Rehearsal, What Next, Draw What You Read, parent voice recording, recorded audio for all items | full decoding path + retention |
 | **v2** | Word Museum morphology (3), Theatre Actors, richer story library, optional on-device speech recognition for read-aloud | fluency + comprehension |
 | **v3** | Unpointed Bridge, teacher view, printable practice pages | advanced readers, home-school link |

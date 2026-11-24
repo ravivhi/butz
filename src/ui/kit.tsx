@@ -73,8 +73,8 @@ export function Round({ emoji, onPress, testID, label, color, size = 56 }: { emo
 
 export type TileState = 'idle' | 'right' | 'wrong' | 'hint' | 'dim' | 'selected' | 'off';
 
-/** 👂 "explain" button: instructions are spoken only when the child asks (never automatically). Wiggles for attention. */
-export function HelpButton({ text, attention = false, size = 56, testID = 'help' }: { text: string | string[]; attention?: boolean; size?: number; testID?: string }) {
+/** Round button that wiggles until it is first pressed (👂 explain, 🔊 listen). */
+export function WiggleRound({ emoji, label, onPress, attention = false, size = 56, testID, color }: { emoji: string; label: string; onPress: () => void; attention?: boolean; size?: number; testID?: string; color?: string }) {
   const pal = usePalette();
   const reduced = useSettings().reducedMotion;
   const wig = useRef(new Animated.Value(0)).current;
@@ -92,9 +92,19 @@ export function HelpButton({ text, attention = false, size = 56, testID = 'help'
   }, [attention, asked, reduced, wig]);
   return (
     <Animated.View style={{ transform: [{ rotate: wig.interpolate({ inputRange: [-1, 1], outputRange: ['-14deg', '14deg'] }) }] }}>
-      <Round emoji="👂" label="הסבר" size={size} color={attention && !asked ? pal.yellow : '#E3F2FD'} testID={testID} onPress={() => { setAsked(true); say(text); }} />
+      <Round emoji={emoji} label={label} size={size} color={attention && !asked ? pal.yellow : color ?? pal.card} testID={testID} onPress={() => { setAsked(true); onPress(); }} />
     </Animated.View>
   );
+}
+
+/** 👂 "explain" button: instructions are spoken only when the child asks (never automatically). */
+export function HelpButton({ text, attention = false, size = 56, testID = 'help' }: { text: string | string[]; attention?: boolean; size?: number; testID?: string }) {
+  return <WiggleRound emoji="👂" label="הסבר" size={size} attention={attention} color="#E3F2FD" testID={testID} onPress={() => say(text)} />;
+}
+
+/** 🔊 "listen" button: the stimulus is played only when the child taps it. Wiggles until the first tap. */
+export function ListenButton({ onPress, attention = true, size = 56, testID = 'replay' }: { onPress: () => void; attention?: boolean; size?: number; testID?: string }) {
+  return <WiggleRound emoji="🔊" label="הקשבה" size={size} attention={attention} testID={testID} onPress={onPress} />;
 }
 
 export function Tile({ text, emoji, label, state = 'idle', onPress, size = 110, font = 'read', color, testID, wide }: {
@@ -216,4 +226,27 @@ export function Card({ children, style, color }: { children: ReactNode; style?: 
   const pal = usePalette();
   const { s } = useLayout();
   return <View style={[{ backgroundColor: color ?? pal.card, borderRadius: s(24), borderWidth: s(3), borderColor: pal.line, padding: s(14), shadowColor: pal.line, shadowOffset: { width: 0, height: s(5) }, shadowOpacity: 1, shadowRadius: 0, elevation: 5 }, style]}>{children}</View>;
+}
+
+const POP = ['🌟', '👏', '🎉', '💪', '⭐', '😍', '🤩', '👍'];
+
+/** Silent praise after a right answer: a big emoji pops up for a moment (nothing is spoken). */
+export function Pop({ run }: { run: number }) {
+  const { s, h } = useLayout();
+  const reduced = useSettings().reducedMotion;
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!run) return;
+    v.setValue(0);
+    Animated.timing(v, { toValue: 1, duration: 800, useNativeDriver: native }).start();
+  }, [run, v]);
+  if (!run) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: h * 0.12, left: 0, right: 0, alignItems: 'center' }}>
+      <Animated.Text testID="praise" style={{ fontSize: s(96), opacity: v.interpolate({ inputRange: [0, 0.12, 0.7, 1], outputRange: [0, 1, 1, 0] }),
+        transform: [{ scale: reduced ? 1 : v.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0.3, 1.2, 1] }) }] }}>
+        {POP[run % POP.length]}
+      </Animated.Text>
+    </View>
+  );
 }

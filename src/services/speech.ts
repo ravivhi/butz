@@ -1,14 +1,12 @@
-/* Hebrew speech (SPEC R-T4, §3.3): device TTS with the best Hebrew voice, recorded clips override TTS when present. */
+/* Hebrew speech (SPEC R-T4, §3.3): recorded clips first (generated neural audio, scripts/make-audio.ts), else device TTS
+   with the best Hebrew voice. */
 import * as Speech from 'expo-speech';
 import { Platform } from 'react-native';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { CLIPS } from './clips';
-import { BUTZ, BUTZ_SAY } from '../engine/phrases';
+import { speakable } from '../engine/phrases';
 
-// The name בּוּץ must sound "Butz", never "botz" (mud): TTS engines may ignore the shuruk on a familiar word, so every
-// spoken mention goes through a spelling they read with /u/ (BUTZ_SAY).
-const NAME = new RegExp(`(^|[^\u0591-\u05C7\u05D0-\u05EA])${BUTZ}(?=$|[^\u0591-\u05C7\u05D0-\u05EA])`, 'g');
-export const speakable = (text: string): string => text.normalize('NFC').replace(NAME, `$1${BUTZ_SAY}`);
+export { speakable };
 
 let voiceId: string | undefined;
 let voiceName = '';
@@ -71,7 +69,7 @@ function speakOne(raw: string, rate: number, my: number): Promise<void> {
     const timer = setTimeout(finish, 900 + text.length * 140 / rate);
     try {
       Speech.speak(text, {
-        language: 'he-IL', voice: voiceId, rate: rate * rateScale, pitch: 1.05,
+        language: 'he-IL', voice: voiceId, rate: rate * rateScale, pitch: 1,
         onDone: () => { clearTimeout(timer); finish(); }, onStopped: () => { clearTimeout(timer); finish(); }, onError: () => { clearTimeout(timer); finish(); },
       });
     } catch {

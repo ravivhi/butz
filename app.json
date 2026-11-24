@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "קוֹרְאִים עִם בּוּץ",
+    "slug": "butz-hebrew-reading",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.raviv.butz"
+    },
+    "android": {
+      "package": "com.raviv.butz",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#FFC94D",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "blockedPermissions": ["android.permission.RECORD_AUDIO", "com.google.android.gms.permission.AD_ID"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "קוֹרְאִים עִם בּוּץ",
+      "lang": "he"
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFF6E5"
+        }
+      ]
+    ]
+  }
+}

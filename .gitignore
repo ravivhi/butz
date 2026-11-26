@@ -46,3 +46,15 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Android app (android-twa/): build outputs, local state, signing (keys live in ~/signing-keys/butz)
+android-twa/.gradle/
+android-twa/build/
+android-twa/app/build/
+android-twa/local.properties
+*.apk
+*.aab
+*.idsig
+*.keystore
+*.jks
+signing-secrets.txt

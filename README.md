@@ -4,7 +4,8 @@ Hebrew reading app for children aged 5-8 (Expo SDK 58 / React Native, TypeScript
 
 - Web version: https://ravivh.com/butz/
 - Privacy policy: https://ravivh.com/butz/privacy.html (source: `public/privacy.html`)
-- Android: package `com.raviv.butz`, built with EAS (`npx eas-cli build -p android --profile production`)
+- Android: package `com.raviv.butz`, a Trusted Web Activity (Bubblewrap, `android-twa/`) that opens the web version,
+  like the owner's other apps; pushing to `main` updates it. Build steps: [PUBLISHING.md](PUBLISHING.md) §4
 
 Start here: [AGENTS.md](AGENTS.md) (commands, rules), [docs/SPEC.md](docs/SPEC.md) (spec), [PUBLISHING.md](PUBLISHING.md) (Google Play steps).
 

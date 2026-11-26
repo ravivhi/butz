@@ -1,0 +1,18 @@
+{
+  "name": "קוֹרְאִים עִם בּוּץ",
+  "short_name": "בּוּץ",
+  "description": "מִשְׂחָקֵי קְרִיאָה בְּעִבְרִית לְגִילָאֵי 5–8",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFF6E5",
+  "theme_color": "#FFC94D",
+  "orientation": "any",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -714,7 +714,8 @@ assets/                      app icons + splash (scripts/make-icons.mjs), sfx (s
 store/                       Google Play icon 512×512 and feature graphic 1024×500 (scripts/make-icons.mjs)
 scripts/                     make-icons.mjs, make-sfx.mjs, make-audio.ts, validate-content.ts, serve.mjs, shots.mjs
 tests/e2e/                   Playwright specs (web)
-eas.json                     EAS Build profiles (preview = APK, production = Play app bundle)
+public/                      web build extras: index.html template, manifest.json, icons/, privacy.html
+android-twa/                 Android app: Bubblewrap Trusted Web Activity opening ravivh.com/butz
 ```
 
 ### 12.3 Core data contracts
@@ -798,8 +799,8 @@ without streak pressure. Not: minutes in app or games completed.
 - `app.json`: `android.package` / `ios.bundleIdentifier` = `com.butz.hebrewreading` (change it **before the first
   upload** if the publishing account wants its own id; it can never change afterwards), `android.versionCode` (+1 for
   every upload), `version`, no microphone permission (`RECORD_AUDIO` blocked).
-- Build: `npx eas-cli build -p android --profile production` → `.aab` for Google Play (the `preview` profile builds an
-  `.apk` to install directly on a tablet). EAS keeps the signing key.
+- Build: the Android app is a Trusted Web Activity (`android-twa/`, Bubblewrap) around the offline web version at
+  https://ravivh.com/butz/ (owner's decision, 26 Nov 2026; steps in PUBLISHING.md §4). The owner keeps the upload key.
 - Play listing: app icon `store/play-icon-512.png`, feature graphic `store/feature-graphic-1024x500.png`, phone + tablet
   screenshots (`node scripts/shots.mjs`). Target audience 5-8 → **Designed for Families** rules apply: a privacy policy
   URL is required (the app collects nothing; see §11.4), Data safety = "no data collected or shared", no ads.

@@ -37,7 +37,7 @@ jobs:
       - run: npm run check
       - name: Serve from /butz (project Pages path) for this build only
         run: node -e "const fs=require('fs'),j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.experiments={...(j.expo.experiments||{}),baseUrl:'/butz'};fs.writeFileSync('app.json',JSON.stringify(j,null,2))"
-      - run: npx expo export -p web
+      - run: npm run build:web
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

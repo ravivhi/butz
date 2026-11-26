@@ -38,7 +38,7 @@
     "validate": "node --no-warnings scripts/validate-content.ts",
     "audio": "node --no-warnings scripts/make-audio.ts",
     "typecheck": "tsc --noEmit",
-    "build:web": "expo export -p web",
+    "build:web": "expo export -p web && node scripts/make-sw.mjs dist",
     "e2e": "npm run build:web && playwright test",
     "check": "npm run validate && npm test && npm run typecheck"
   },

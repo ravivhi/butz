@@ -10,7 +10,14 @@ The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip
 
 - Expo SDK 58 / React Native 0.88 / TypeScript app. No server, no account, no ads, no purchases, no analytics. It
   works offline and stores everything on the device.
-- Android package id: `com.raviv.butz` (chosen by the owner). Version: `1.1.0`, `versionCode` 2, both in `app.json`.
+- Android package id: `com.raviv.butz` (chosen by the owner).
+- **How the Android app is made (owner's decision, 26 Nov 2026):** like the owner's other apps (alfi, ehadi,
+  englishQuiz, guessingGame), the Android app is a **Trusted Web Activity** made with Bubblewrap (`android-twa/`). It
+  opens the web version at https://ravivh.com/butz/ full screen in Chrome. The web version is an installable, offline
+  web app (`public/manifest.json`, a service worker made by `scripts/make-sw.mjs`). So **every push to `main` updates
+  the app on all phones** (on the next launch with internet); a new Play upload is needed only when `android-twa/`
+  itself changes (icon, name, colors, Android version). Expo is used only for the web build (`expo export -p web`);
+  EAS Build and `eas.json` are not used.
 - Speech: recorded clips first (generated once with Microsoft's official Azure neural Hebrew voice, see §2b and
   `docs/AUDIO.md`), otherwise the device's text-to-speech engine. On Android that is **Speech Services by Google** with
   the **Hebrew** voice installed. The app is **quiet by default**: it speaks only when the child taps 👂 or 🔊.
@@ -26,7 +33,8 @@ The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip
 | Need | Notes |
 |------|-------|
 | Node.js 24 LTS or newer, with npm | Tested with Node 26. Check with `node --version`. |
-| A free Expo account | https://expo.dev/signup. EAS Build compiles in the cloud, so no Android Studio is needed. |
+| JDK 17 + Android SDK, and Bubblewrap | `npm i -g @bubblewrap/cli`. Bubblewrap's config (`~/.bubblewrap/config.json`) points at the JDK and SDK. |
+| The upload key | `~/signing-keys/butz/android.keystore` (alias `butz`) + `signing-secrets.txt`. Never in git; back it up. |
 | A Google Play Console developer account | One-time US$25 fee, with identity verification done. |
 | An Android phone or tablet for testing | Install "Speech Services by Google" and download the Hebrew voice (Settings → Text-to-speech). |
 | A public web page for the privacy policy | Google Sites, GitHub Pages, Notion, or any public URL works (see §6). |
@@ -76,26 +84,39 @@ If the owner has no key, the app still works with the device voice.
 - Phone: `npx expo start`, then scan the QR code with **Expo Go**. Expo Go must support SDK 58. On a strict network,
   use `npx expo start --tunnel`.
 
-## 4. Connect to Expo (EAS)
+## 4. Build the Android app (TWA)
 
-```bash
-npx eas-cli@latest login
-npx eas-cli@latest init        # creates the EAS project; writes extra.eas.projectId (and owner) into app.json
+From **PowerShell** (passwords come from `~/signing-keys/butz/signing-secrets.txt`; never print them):
+
+```powershell
+$s = @{}; Get-Content "$HOME\signing-keys\butz\signing-secrets.txt" | ? { $_ -match '=' } | % { $i = $_.IndexOf('='); $s[$_.Substring(0,$i).Trim()] = $_.Substring($i+1).Trim() }
+$env:BUBBLEWRAP_KEYSTORE_PASSWORD = $s.KEYSTORE_PASSWORD; $env:BUBBLEWRAP_KEY_PASSWORD = $s.KEY_PASSWORD
+Remove-Item Env:NoDefaultCurrentDirectoryInExePath -ErrorAction SilentlyContinue   # else "'gradlew.bat' is not recognized"
+cd android-twa
+bubblewrap build --skipPwaValidation
 ```
 
-`eas.json` is already set up: `preview` builds an installable **APK**, and `production` builds a Play **app bundle
-(.aab)**. `appVersionSource` is `local`, so the version numbers in `app.json` are the source of truth. When EAS asks
-to generate a new Android keystore, answer **yes**. EAS stores the signing key; do not lose access to this Expo
-account.
+It writes `android-twa/app-release-signed.apk` (install on a phone) and `android-twa/app-release-bundle.aab` (upload
+to Play), both signed with the butz upload key (SHA-256 `F7:EB:1B:45:…:4C:FE:BB`). They are git-ignored.
+
+- **Never run `bubblewrap update`**: it regenerates the project from Bubblewrap's template and resets
+  `targetSdkVersion` to 35 (Play needs 36).
+- If you edit `android-twa/twa-manifest.json`, keep the copies in `android-twa/app/build.gradle` in sync and write its
+  SHA-1 into `manifest-checksum.txt` (no newline), or Bubblewrap asks to regenerate the project.
+- **Digital Asset Links:** `https://ravivh.com/.well-known/assetlinks.json` (repo `ravivhi/ravivhi.github.io`) lists
+  `com.raviv.butz` with the upload key's SHA-256. After the first Play upload, **add the Play app-signing key's
+  SHA-256** (Play Console → Test and release → App integrity) to the same entry. Without it, the app installed from
+  Play shows a browser address bar.
+- Images (launcher, adaptive icon, splash, `store_icon.png`) come from `node scripts/make-icons.mjs`.
 
 ## 5. Test build on a real device
 
-```bash
-npx eas-cli@latest build -p android --profile preview
-```
+Copy `android-twa/app-release-signed.apk` to the Android device and install it (allow installing from this source).
+Open it once **with internet** (the first load downloads the app; after that it works offline). Then go through this
+checklist and report the results to the owner:
 
-When the build finishes, open the link on the Android device and install the APK. Then go through this checklist and
-report the results to the owner:
+- [ ] No address bar at the top (if there is one, the assetlinks fingerprint does not match the key that signed the APK).
+- [ ] Airplane mode, then reopen the app: it still works.
 
 - [ ] The first screen asks **בֵּן / בַּת** (boy/girl), then name and animal friend, then a short starting game.
 - [ ] Nothing is read aloud by itself — not when a screen opens, not during games. 👂 speaks the instructions, 🔊 (it
@@ -141,12 +162,8 @@ Contact: <EMAIL>
 
 ## 7. Production build
 
-```bash
-npx eas-cli@latest build -p android --profile production     # produces the .aab
-```
-
-Download the `.aab` from the build page. The **first upload must be done by hand** in the Play Console. Later updates
-can use `npx eas-cli@latest submit -p android`, but that needs a Google service-account key, so manual upload is fine.
+`android-twa/app-release-bundle.aab` from §4. Upload it by hand in the Play Console. Choose **Use Google-generated
+key** (Play App Signing); then add that key's SHA-256 to assetlinks (§4).
 
 ## 8. Google Play Console
 
@@ -166,7 +183,7 @@ Play Console → **Create app**:
 | Content rating | Fill the IARC questionnaire. Category **Reference, News, or Educational**. Answer **No** to violence, sexuality, language, controlled substances, gambling, user interaction / chat, sharing location, and digital purchases. |
 | Target audience and content | Age groups **5 and under** and **6-8**. The app is **designed for children** → Google Play **Families policy** applies. The app meets it: no ads, no data collection, no third-party SDKs. |
 | Data safety | Does the app collect or share user data? **No**. Data that stays on the device does not count as collected. No account creation, so no account-deletion URL is needed. |
-| Advertising ID | **No**, the app does not use the advertising ID (the permission is blocked in `app.json`) |
+| Advertising ID | **No**, the app does not use the advertising ID (the TWA requests no such permission) |
 | Government app, financial features, health, news | **No** |
 
 ### 8.3 Store listing (Grow → Store presence → Main store listing)
@@ -210,10 +227,11 @@ Play Console → **Create app**:
 
 ## 9. Updates later
 
-1. Make the change. Run `npm run check` (and `npm run e2e` if Edge is available).
-2. In `app.json`, increase `expo.android.versionCode` by 1 (**required for every upload**) and update `expo.version`
-   (e.g. `1.1.1`). If content changed, rerun `npm run audio` (only new lines are generated).
-3. `npx eas-cli@latest build -p android --profile production`, then upload to Play (or use `eas submit`).
+1. Make the change. Run `npm run check` and `npm run e2e`. If content changed, rerun `npm run audio` (only new lines).
+2. Push to `main`. GitHub Actions rebuilds https://ravivh.com/butz/ and **phones get the new version on the next
+   launch** (the service worker checks the network first for the page). No Play upload, no review.
+3. Only when `android-twa/` changes: raise `versionCode`/`versionName` in `android-twa/app/build.gradle` **and**
+   `appVersionCode`/`appVersionName` in `android-twa/twa-manifest.json` (+ the checksum), rebuild (§4), upload the `.aab`.
 
 ## 10. Do not change without the owner
 
@@ -228,10 +246,11 @@ Play Console → **Create app**:
 | Problem | Fix |
 |---------|-----|
 | `npm ci` fails | Use Node 24+. Delete `node_modules` and retry. Do not switch to `npm install` unless the lock file is the problem. |
-| Build fails on EAS | Run `npx expo-doctor` and `npx expo install --check`, then fix what they report (SDK-compatible versions only). |
+| Web build fails | Run `npx expo-doctor` and `npx expo install --check`, then fix what they report (SDK-compatible versions only). |
+| The Android app shows an address bar | The SHA-256 of the signing key is missing from ravivh.com/.well-known/assetlinks.json (after a Play install: the Play app-signing key). |
 | No speech on the device | Speech plays only when 🔊 / 👂 is tapped (by design). Lines without a generated clip need the Hebrew voice in Google's text-to-speech settings; turn up media volume. |
 | A word or sound is pronounced wrongly | Generate the clips (§2b). If a clip itself is wrong, fix the line's text/`say` or add a manual recording (`docs/AUDIO.md`). |
 | Play rejects the package name | Pick a new unique `android.package` before the **first** upload, then rebuild. |
-| Play says the version code was already used | Increase `versionCode` in `app.json` and rebuild. |
-| Play asks about the AD_ID permission | Answer that the app does not use the advertising ID (it is blocked in `app.json`). |
-| iOS wanted too | Needs an Apple Developer account (US$99/year): `npx eas-cli@latest build -p ios --profile production`, then `eas submit -p ios`. Same privacy answers ("Data Not Collected", Kids category 6-8). |
+| Play says the version code was already used | Increase the version code in `android-twa/` (§9) and rebuild. |
+| Play asks about the AD_ID permission | Answer that the app does not use the advertising ID. |
+| iOS wanted too | iPhone/iPad users can open https://ravivh.com/butz/ in Safari → Share → Add to Home Screen (works offline). |

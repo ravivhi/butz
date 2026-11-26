@@ -1,5 +1,6 @@
 // App icons, splash and Google Play store graphics, rendered from the Butz owl SVG (same art as src/ui/Butz.tsx).
-// Usage: node scripts/make-icons.mjs   (writes assets/*.png and store/*.png; needs Microsoft Edge for Playwright)
+// Usage: node scripts/make-icons.mjs   (writes assets/*.png, store/*.png, public/icons/*.png (web app / PWA) and the
+// android-twa/ launcher, maskable and splash images; needs Microsoft Edge for Playwright)
 import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -7,7 +8,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const font = pathToFileURL(join(root, 'node_modules/@expo-google-fonts/rubik/700Bold/Rubik_700Bold.ttf')).href;
-mkdirSync(join(root, 'store'), { recursive: true });
+for (const d of ['store', 'public/icons']) mkdirSync(join(root, d), { recursive: true });
 
 const OWL = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
   <ellipse cx="45" cy="128" rx="18" ry="40" fill="#7A4A2E" transform="rotate(-25 52 125)"/>
@@ -50,6 +51,17 @@ const jobs = [
         <div style="font-size:58px;margin-top:14px">🦉 📖 ⭐</div>
       </div></div>`,
   },
+  // web app (PWA) icons, used by the browser's "add to home screen" and the Android app (TWA)
+  { file: 'public/icons/icon-192.png', w: 192, h: 192, body: `<div class="c" style="background:${BG}">${owl(78)}</div>` },
+  { file: 'public/icons/icon-512.png', w: 512, h: 512, body: `<div class="c" style="background:${BG}">${owl(78)}</div>` },
+  { file: 'public/icons/maskable-512.png', w: 512, h: 512, body: `<div class="c" style="background:${BG}">${owl(56)}</div>` },
+  // Android app (android-twa/): launcher, adaptive (maskable) icon and splash for each screen density
+  ...[['mdpi', 1], ['hdpi', 1.5], ['xhdpi', 2], ['xxhdpi', 3], ['xxxhdpi', 4]].flatMap(([d, k]) => [
+    { file: `android-twa/app/src/main/res/mipmap-${d}/ic_launcher.png`, w: 48 * k, h: 48 * k, body: `<div class="c" style="background:${BG}">${owl(78)}</div>` },
+    { file: `android-twa/app/src/main/res/mipmap-${d}/ic_maskable.png`, w: 82 * k, h: 82 * k, body: `<div class="c" style="background:${BG}">${owl(56)}</div>` },
+    { file: `android-twa/app/src/main/res/drawable-${d}/splash.png`, w: 300 * k, h: 300 * k, transparent: true, body: `<div class="c">${owl(90)}</div>` },
+  ]),
+  { file: 'android-twa/store_icon.png', w: 512, h: 512, body: `<div class="c" style="background:${BG}">${owl(78)}</div>` },
 ];
 
 const browser = await chromium.launch({ channel: 'msedge' });

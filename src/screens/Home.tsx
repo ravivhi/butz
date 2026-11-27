@@ -68,6 +68,11 @@ export function Home() {
         </View>
         <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(10) }}>
           <StarPill n={p.wallet.stars} />
+          {/* top-left: the parents area, behind a multiplication question */}
+          <Pressable testID="nav-parent" accessibilityRole="button" accessibilityLabel="בקרת הורים" onPress={() => go({ name: 'gate' })}
+            style={{ width: s(48), height: s(48), borderRadius: s(24), alignItems: 'center', justifyContent: 'center', backgroundColor: pal.card, opacity: 0.85 }}>
+            <Text style={{ fontSize: s(26) }}>⚙️</Text>
+          </Pressable>
         </View>
       </View>
       <NoVoiceBanner />

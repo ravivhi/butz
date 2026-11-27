@@ -38,7 +38,7 @@ const knownWith = (p: Profile, spec?: ActivitySpec) => new Set([...knownFor(p), 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** A story activity becomes its page (unscored) + questions + puzzle. */
-function flatten(items: Item[]): HostItem[] {
+export function flatten(items: Item[]): HostItem[] {
   const out: HostItem[] = [];
   for (const it of items) {
     if (it.story && it.id.startsWith('story:')) {

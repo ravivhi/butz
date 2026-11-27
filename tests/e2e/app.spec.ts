@@ -391,14 +391,39 @@ test('hidden levels: a hard Missing Letter has three boxes, success keeps it har
   expect(errors).toEqual([]);
 });
 
-test('no grown-ups area: no gate, no settings; Home has no ⚙️ and the avatar is not a button', async ({ page }) => {
+test('parents area: ⚙️ → a multiplication question → time, week, a colour and level per game, and an example', async ({ page }) => {
   const errors = trackErrors(page);
   await firstRun(page, 'גל');
   await page.evaluate(() => (window as any).__butz.go({ name: 'home' }));
   await expect(page.getByTestId('home')).toBeVisible();
+  await tap(page, 'nav-parent');
+  await expect(page.getByTestId('gate')).toBeVisible();
+  const ask = async () => (await page.getByTestId('gate-q').innerText()).match(/(\d) × (\d)/)!.slice(1).map(Number);
+  // a wrong answer does not open it (and brings a new question); both numbers are 6–9 and different
+  let [a, b] = await ask();
+  expect(a).toBeGreaterThan(5); expect(b).toBeGreaterThan(5); expect(a).not.toBe(b);
+  for (const d of String(a * b + 1)) await tap(page, 'key-' + d);
+  await tap(page, 'key-✓');
   await expect(page.getByTestId('parent')).toHaveCount(0);
-  await expect(page.getByLabel('אזור הורים')).toHaveCount(0);
-  await expect(page.getByTestId('avatar').getByRole('button')).toHaveCount(0);
+  [a, b] = await ask();
+  for (const d of String(a * b)) await tap(page, 'key-' + d);
+  await tap(page, 'key-✓');
+  await expect(page.getByTestId('parent')).toBeVisible();
+  await expect(page.getByTestId('today')).toContainText('דק׳');
+  await expect(page.getByTestId('week')).toHaveCount(1);
+  // the starting check played syllable hop etc.: every game has a row with a status
+  for (const id of ['syllableHop', 'memoryMatch', 'balloonPop', 'letterTrace', 'missingLetter', 'wordBakery', 'storyDetective', 'storyPuzzle'])
+    await expect(page.getByTestId('pg-' + id)).toHaveCount(1);
+  // an example at the current level; nothing is recorded
+  const before = JSON.stringify((await state(page)).profiles[0].learner);
+  await tap(page, 'example-balloonPop');
+  await expect(page.getByTestId('preview')).toBeVisible();
+  await expect(page.getByTestId('preview-level')).toHaveAttribute('aria-label', /[1-5]/);
+  await tap(page, 'preview-next');
+  await expect(page.getByTestId('preview')).toBeVisible();
+  expect(JSON.stringify((await state(page)).profiles[0].learner)).toBe(before);
+  await page.goBack();
+  await expect(page.getByTestId('parent')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

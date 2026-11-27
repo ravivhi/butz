@@ -4,6 +4,10 @@
 > settings, voice check, children management, "advance now") is **removed**, so every setting is fixed to its default
 > and a device has one child. Button taps make **no sound**; only game feedback and gifts/stickers sound. The phone's
 > back button goes one screen back.
+> **Later the same day:** a new, simple parents area replaces it: ⚙️ top-left on Home → a multiplication question
+> (two different numbers 6–9) → minutes played today (counted only while the child is active), the week, and per game
+> 🟢 doing well (≥80% first-try without a hint, last 20 answers) / 🟡 practising (≥60%) / 🔴 finding it hard, the hidden
+> level as dots, and "צפה בדוגמה" (an example at the current level; nothing is recorded). Settings stay fixed.
 > Tapping Butz on Home: the first tap explains; later taps pick the explanation or a funny line at random
 > ("אֲנִי בּוּץ!" spinning, "בּוּץ!" shaking, a long slow "בּוּץ!" flying up), each move starting with the line.
 

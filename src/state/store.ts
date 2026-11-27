@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { newLearner, type Learner } from '../engine/learner';
+import { dayKey, newLearner, type Learner } from '../engine/learner';
 import { newWallet, type Wallet } from '../engine/economy';
 import { NOTEBOOK } from '../engine/content/stickers';
 import type { Gender } from '../engine/phrases';
@@ -38,6 +38,8 @@ export interface Profile {
   spine: string[];
   audioBad: string[];   // voice check flags (R-PA6)
   sessions: SessionLog[];
+  /** Time in the app per day (dayKey → ms), for the parents area. Only while the child is active (src/services/playTime.ts). */
+  playMs?: Record<string, number>;
 }
 
 export type Route =
@@ -48,7 +50,10 @@ export type Route =
   | { name: 'placement' }
   | { name: 'notebooks' }
   | { name: 'notebook'; id: string; open?: boolean }
-  | { name: 'shop' };
+  | { name: 'shop' }
+  | { name: 'gate' }
+  | { name: 'parent' }
+  | { name: 'preview'; game: string };
 
 interface State { profiles: Profile[]; currentId: string | null; hydrated: boolean; stack: Route[] }
 
@@ -100,6 +105,7 @@ function migrate(p: Profile): Profile {
     ...p, gender, wallet, settings: { ...DEFAULT_SETTINGS }, // no grown-ups area: settings are fixed
     spine: p.spine?.length ? p.spine : DEFAULT_SPINE,
     learner: { ...p.learner, seen: p.learner.seen ?? {} },
+    playMs: p.playMs ?? {},
   };
 }
 
@@ -129,6 +135,19 @@ export function updateProfile(fn: (p: Profile) => void): void {
   fn(p);
   applyDeviceSettings(p);
   emit();
+}
+
+/** Count play time for today (no re-render; saved with the next save). Keeps the last 60 days. */
+export function addPlayTime(ms: number, now = Date.now()): void {
+  const p = current();
+  if (!p || !state.hydrated) return;
+  const m = (p.playMs ??= {});
+  const d = dayKey(now);
+  m[d] = (m[d] ?? 0) + ms;
+  const keys = Object.keys(m).sort();
+  for (const k of keys.slice(0, Math.max(0, keys.length - 60))) delete m[k];
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 2000);
 }
 
 export function createProfile(name: string, avatar: string, gender: Gender, school: string[] = []): Profile {

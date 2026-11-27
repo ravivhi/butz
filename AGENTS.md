@@ -149,12 +149,13 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 | Gender-first setup, gendered speech, silent by default (👂 / 🔊 / 💡 on demand) | done |
 | Progression: all worlds open, faster introduction, never-stuck guard | done |
 | Rewards: 16 gendered notebooks × 30 live stickers (shiny ones), envelopes from 5 ⭐, notebooks from 5 ⭐, shop | done |
-| Grown-ups area (gate, report, settings, voice check, children) | **removed** by the owner (27 Nov 2026); one child per device, settings fixed to the defaults |
+| Grown-ups area (gate, report, settings, voice check, children) | removed by the owner (27 Nov 2026); one child per device, settings fixed to the defaults |
+| Parents area v2 (owner, 27 Nov 2026): ⚙️ top-left on Home → multiplication gate (6–9 × 6–9) → today's minutes, the week, per game 🟢🟡🔴 + level dots, "צפה בדוגמה" (example at the current level, nothing recorded) | done (`src/screens/Parent.tsx`, `parentSummary` in `src/engine/report.ts`, play time in `src/services/playTime.ts` → `Profile.playMs`) |
 | Sounds | only game feedback (right/wrong, pop, hop, match, stroke done, stars/win) and gifts/stickers (envelope, sticker, notebook); **no sound on button taps** (owner, 27 Nov 2026) |
 | Phone back button (Android, TWA, browser) | done (`src/services/backButton.ts`) |
 | App icons, splash, Play store graphics, Android package id | done |
 | Installable offline web app (manifest, service worker) + Android TWA (`android-twa/`, signed with the upload key) | done |
-| E2E: first run (silent session), on-demand speech, beginner path, every game from the map for a beginner, writing with a finger, no grown-ups area, shop, back button (tablet + phone) | done |
+| E2E: first run (silent session), on-demand speech, beginner path, every game from the map for a beginner, writing with a finger, parents area (gate, summary, example), shop, back button (tablet + phone) | done |
 | Neural audio: pipeline + inventory ready (`npm run audio`, ≈ 2,800 lines); **clips not generated yet** (needs the owner's Azure Speech key) | waiting for key |
 | v1 games: soundTwins, firstSoundMarket, nikudSorter, missingSound, shvaSubmarine, ahvyDetectives, longWordMaze, storyRehearsal, whatNext, drawWhatYouRead; parent voice recording | not started |
 | Teacher spot-check of the stories | recommended before a public release |

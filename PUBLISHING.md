@@ -138,7 +138,9 @@ checklist and report the results to the owner:
       write a letter with a finger from the red dot along the grey path, first in print, then in cursive.
       **בָּלוֹנֵי אוֹתִיּוֹת**: the letter is shown in print, the balloons are in cursive.
 - [ ] Stories (בַּלַּשׁ הַסִּפּוּרִים, פָּאזֶל הַסִּפּוּר): the whole story is one page, and every question can go back to it.
-- [ ] There is no grown-ups area (removed by the owner, 27 Nov 2026): no ⚙️ on Home, no settings.
+- [ ] Parents area: ⚙️ at the top-left of Home asks a multiplication question (6–9 × 6–9); a wrong answer brings a
+      new question, the right one opens it. It shows minutes played today, the week (one bar per day), and per game
+      🟢/🟡/🔴 plus level dots; "צפה בדוגמה" opens an example at the child's level and records nothing.
 - [ ] Tapping buttons makes no sound; games still sound right/wrong answers, and getting stickers or a notebook sounds.
 - [ ] The phone's back button goes one screen back, and closes the app only from Home.
 - [ ] Play one full session from "מַמְשִׁיכִים!", open the sticker notebooks and the shop (envelopes and notebooks start at
@@ -193,7 +195,7 @@ Play Console → **Create app**:
 |---------|--------|
 | Privacy policy | The URL from §6 |
 | Ads | **No**, the app has no ads |
-| App access | All functionality is available without special access. There is no login, no settings area and nothing locked. |
+| App access | All functionality is available without special access. There is no login. The parents area (⚙️ on Home) opens after answering a multiplication question shown on screen (e.g. 7 × 8 = 56). |
 | Content rating | Fill the IARC questionnaire. Category **Reference, News, or Educational**. Answer **No** to violence, sexuality, language, controlled substances, gambling, user interaction / chat, sharing location, and digital purchases. |
 | Target audience and content | Age groups **5 and under** and **6-8**. The app is **designed for children** → Google Play **Families policy** applies. The app meets it: no ads, no data collection, no third-party SDKs. |
 | Data safety | Does the app collect or share user data? **No**. Data that stays on the device does not count as collected. No account creation, so no account-deletion URL is needed. |

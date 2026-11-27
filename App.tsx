@@ -18,6 +18,8 @@ import { Home, Setup } from './src/screens/Home';
 import { Placement, Play } from './src/screens/Play';
 import { MapScreen } from './src/screens/Map';
 import { NotebookView, Notebooks, Shop } from './src/screens/Stickers';
+import { Gate, ParentArea, Preview } from './src/screens/Parent';
+import { initPlayTime } from './src/services/playTime';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -36,6 +38,9 @@ function Router() {
     case 'notebooks': return <Notebooks />;
     case 'notebook': return <NotebookView key={r.id} id={r.id} open={r.open} />;
     case 'shop': return <Shop />;
+    case 'gate': return <Gate />;
+    case 'parent': return <ParentArea />;
+    case 'preview': return <Preview key={r.game} game={r.game} />;
   }
 }
 
@@ -45,7 +50,7 @@ export default function App() {
   useEffect(() => {
     initAudio();
     initSpeech();
-    hydrate().then(() => { initBackButton(); setReady(true); });
+    hydrate().then(() => { initBackButton(); initPlayTime(); setReady(true); });
     if (Platform.OS === 'web') (globalThis as any).__butz = { getState, go };
   }, []);
   const loaded = ready && (fonts || !!fontError);

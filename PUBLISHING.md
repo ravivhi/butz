@@ -134,7 +134,7 @@ checklist and report the results to the owner:
 - [ ] Nothing is read aloud by itself — not when a screen opens, not during games. Instructions are written on the
       screen; 🔊 plays the sound or word, 💡 gives a hint, 👂 explains.
 - [ ] Hebrew speech works when 🔊 is tapped. If it is silent, install the Google Hebrew voice (§1).
-- [ ] Map: all 8 games are listed in learning order and every one opens, even for a beginner. **כּוֹתְבִים אוֹתִיּוֹת**:
+- [ ] Home: tapping בּוּץ (the owl) explains the app; there is no 👂 button. The big green **מִשְׂחָק** button opens the games list: all 8 games one below the other, in learning order, every one opens even for a beginner, and the two story games are golden with a big ⭐ behind their icon. **כּוֹתְבִים אוֹתִיּוֹת**:
       write a letter with a finger from the red dot along the grey path, first in print, then in cursive.
       **בָּלוֹנֵי אוֹתִיּוֹת**: the letter is shown in print, the balloons are in cursive.
 - [ ] Stories (בַּלַּשׁ הַסִּפּוּרִים, פָּאזֶל הַסִּפּוּר): the whole story is one page, and every question can go back to it.

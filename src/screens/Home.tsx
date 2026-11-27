@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { createProfile, go, switchProfile, useProfile, useStore } from '../state/store';
-import { Big, Card, HelpButton, Screen, StarPill, Txt } from '../ui/kit';
+import { Big, Card, Screen, StarPill, Txt } from '../ui/kit';
 import { Butz } from '../ui/Butz';
 import { LiveSticker } from '../ui/LiveSticker';
 import { FONT, ROW, useLayout, usePalette } from '../ui/theme';
-import { onSpeechInfo, speechInfo } from '../services/speech';
+import { onSpeechInfo, say, speechInfo } from '../services/speech';
 import { envelopePrice } from '../engine/economy';
 import { APP_NAME, BUTZ, SAY, g, type Gender } from '../engine/phrases';
 
@@ -64,11 +64,13 @@ export function Home() {
       <View style={{ flex: 1, flexDirection: landscape ? ROW : 'column', alignItems: 'center', justifyContent: 'space-evenly', padding: s(12) }}>
         <View style={{ alignItems: 'center', gap: s(14) }}>
           <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(12) }}>
-            <Butz size={Math.min(s(170), short * 0.34)} mood="happy" />
-            <HelpButton text={g(SAY.homeHelp, p.gender)} attention={!p.sessions.length} />
+            {/* tapping Butz explains the app (no separate 👂 button on Home) */}
+            <Pressable testID="help" accessibilityRole="button" accessibilityLabel="הסבר" onPress={() => say(g(SAY.homeHelp, p.gender))}>
+              <Butz size={Math.min(s(170), short * 0.34)} mood="happy" />
+            </Pressable>
           </View>
           <LatestStickers />
-          <Big label="מַפָּה" emoji="🗺️" size="xl" color={pal.green} onPress={() => go({ name: 'map' })} testID="nav-map" glow />
+          <Big label="מִשְׂחָק" emoji="🎮" size="xl" color={pal.green} onPress={() => go({ name: 'map' })} testID="nav-map" glow />
         </View>
         <View style={{ flexDirection: landscape ? 'column' : ROW, gap: s(14), flexWrap: 'wrap', justifyContent: 'center' }}>
           <Big label="מַחְבָּרוֹת" emoji={surprise ? '✉️' : '📒'} size="m" color={pal.purple} onPress={() => go({ name: 'notebooks' })} testID="nav-notebooks" glow={surprise} />

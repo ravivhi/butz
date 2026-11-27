@@ -156,9 +156,9 @@ export function ParentArea() {
           {sum.games.map((g) => {
             const def = GAME[g.game];
             return (
-              <Card key={g.game} style={{ flexDirection: ROW, alignItems: 'center', gap: s(10), flexWrap: 'wrap', paddingVertical: s(10) }}>
-                <View testID={'pg-' + g.game} accessibilityLabel={g.status} style={{ flexDirection: ROW, alignItems: 'center', gap: s(10), flex: 1, minWidth: s(200) }}>
-                  <Text style={{ fontSize: s(34) }}>{def.icon}</Text>
+              <Card key={g.game} style={{ flexDirection: ROW, alignItems: 'center', gap: s(8), paddingVertical: s(8), paddingHorizontal: s(10) }}>
+                <View testID={'pg-' + g.game} accessibilityLabel={g.status} style={{ flexDirection: ROW, alignItems: 'center', gap: s(8), flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: s(30) }}>{def.icon}</Text>
                   <View style={{ flex: 1, gap: s(4) }}>
                     <Txt size={18} font="read" center={false}>{def.name}</Txt>
                     <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(10), flexWrap: 'wrap' }}>
@@ -167,7 +167,11 @@ export function ParentArea() {
                     </View>
                   </View>
                 </View>
-                <Big label="צפה בדוגמה" emoji="👀" size="s" color={pal.purple} onPress={() => go({ name: 'preview', game: g.game })} testID={'example-' + g.game} />
+                <Pressable testID={'example-' + g.game} accessibilityRole="button" accessibilityLabel="צפה בדוגמה" onPress={() => go({ name: 'preview', game: g.game })}
+                  style={{ flexDirection: ROW, alignItems: 'center', gap: s(4), paddingHorizontal: s(10), paddingVertical: s(6), borderRadius: s(18), backgroundColor: pal.purple }}>
+                  <Text style={{ fontSize: s(16) }}>👀</Text>
+                  <Txt size={14} font="uiHeavy" color="#FFFFFF">{'צפה בדוגמה'}</Txt>
+                </Pressable>
               </Card>
             );
           })}

@@ -2,9 +2,8 @@
 import { LETTERS } from './hebrew.ts';
 import { generate, type GenCtx, type Item } from './generators.ts';
 import { introduce, record, type Learner } from './learner.ts';
-import { decodableWords, knownUnits } from './gating.ts';
 
-type Block = 'sounds' | 'letters' | 'letters2' | 'nikud' | 'words' | 'done';
+type Block = 'sounds' | 'letters' | 'letters2' | 'words' | 'done';
 export interface PlacementState {
   block: Block;
   queue: Item[];
@@ -23,10 +22,7 @@ const EXTRAPOLATE = ['samekh', 'he', 'het', 'kaf', 'alef', 'ayin', 'tsadi', 'zay
 
 export function startPlacement(ctx: GenCtx): PlacementState {
   const st: PlacementState = { block: 'sounds', queue: [], blockOk: 0, blockN: 0, missStreak: 0, okLetters: [], okVowels: [], total: 0 };
-  st.queue = [
-    ...generate({ game: 'robotMixer', skill: 'PA.blend', mode: 'placement', n: 1 }, ctx),
-    ...generate({ game: 'soundSafari', skill: 'PA.first', mode: 'placement', n: 1 }, ctx),
-  ];
+  st.queue = generate({ game: 'syllableHop', skill: 'PA.count', mode: 'placement', n: 2 }, ctx);
   return st;
 }
 
@@ -35,19 +31,20 @@ function probeCtx(ctx: GenCtx, units: string[]): GenCtx {
   return { ...ctx, known: new Set([...ctx.known, ...units]) };
 }
 
+/** Letter probes without sound (v1.3): a picture word with its first letter missing (הָאוֹת הַחֲסֵרָה, easiest level). */
 function letterItems(ids: string[], ctx: GenCtx): Item[] {
   const all = LETTERS.filter((l) => !l.final).map((l) => 'L.' + l.id);
-  return ids.map((id) => generate({ game: 'soundLighthouse', skill: 'L.' + id, mode: 'placement', n: 1, target: id }, probeCtx(ctx, all))[0]);
+  return ids.map((id) => generate({ game: 'missingLetter', skill: 'L.' + id, mode: 'placement', n: 1, target: id }, probeCtx(ctx, all))[0]).filter(Boolean);
 }
 
-function nikudItems(st: PlacementState, ctx: GenCtx): Item[] {
-  const letters = st.okLetters.filter((l) => l !== 'vav');
-  const units = letters.map((l) => 'L.' + l).concat(['V.a', 'V.i', 'V.e', 'V.o', 'V.u']);
+/** Reading probe: build three picture words from their syllables, with every vowel lent (so only letters gate the words). */
+function wordItems(st: PlacementState, ctx: GenCtx): Item[] {
+  const units = st.okLetters.map((l) => 'L.' + l).concat(VOWEL_UNITS);
   const probe = probeCtx({ ...ctx, known: new Set() }, units);
-  return (['a', 'i', 'e', 'o', 'u'] as const)
-    .map((v) => generate({ game: 'syllableDJ', skill: 'V.' + v, mode: 'placement', n: 1, target: ctx.rng.pick(letters) }, probe)[0])
-    .filter(Boolean);
+  return generate({ game: 'wordBakery', skill: 'W2', mode: 'placement', n: 3 }, probe);
 }
+
+const VOWEL_UNITS = ['V.a', 'V.i', 'V.e', 'V.o', 'V.u'];
 
 function nextBlock(st: PlacementState, ctx: GenCtx, learner: Learner): void {
   const ratio = st.blockN ? st.blockOk / st.blockN : 0;
@@ -56,24 +53,17 @@ function nextBlock(st: PlacementState, ctx: GenCtx, learner: Learner): void {
   st.blockN = 0;
   st.missStreak = 0;
   st.queue = [];
-  const toNikud = () => {
-    st.block = st.okLetters.length >= 3 ? 'nikud' : 'done';
-    if (st.block === 'nikud') st.queue = nikudItems(st, ctx);
+  const toWords = () => {
+    st.block = st.okLetters.length >= 4 ? 'words' : 'done';
+    if (st.block === 'words') st.queue = wordItems(st, ctx);
   };
   if (from === 'sounds') {
     st.block = 'letters';
     st.queue = letterItems(LETTERS_A, ctx);
   } else if (from === 'letters') {
-    if (ratio >= 5 / 6) { st.block = 'letters2'; st.queue = letterItems(LETTERS_B, ctx); } else toNikud();
+    if (ratio >= 5 / 6) { st.block = 'letters2'; st.queue = letterItems(LETTERS_B, ctx); } else toWords();
   } else if (from === 'letters2') {
-    toNikud();
-  } else if (from === 'nikud') {
-    const known = knownUnits(learner);
-    const ws = decodableWords(known).filter((w) => !w.units.includes('X.quiet'));
-    if (ratio >= 0.6 && ws.length >= 4) {
-      st.block = 'words';
-      st.queue = generate({ game: 'wordExplorer', skill: 'W2', mode: 'placement', n: 3 }, { ...ctx, known });
-    } else st.block = 'done';
+    toWords();
   } else st.block = 'done';
   if (!st.queue.length && st.block !== 'done') nextBlock(st, ctx, learner);
 }
@@ -89,9 +79,12 @@ export function answerPlacement(st: PlacementState, learner: Learner, ctx: GenCt
   if (ok) { st.blockOk++; st.missStreak = 0; } else st.missStreak++;
   if (ok) {
     if (item.skill.startsWith('L.')) { st.okLetters.push(item.skill.slice(2)); introduce(learner, item.skill, now, 'placement'); }
-    if (item.game === 'syllableDJ') { const v = item.skill; st.okVowels.push(v); introduce(learner, v, now, 'placement'); introduce(learner, 'CV', now, 'placement'); }
-    if (item.game === 'wordExplorer' && item.word) introduce(learner, item.word.level, now, 'placement');
     record(learner, { t: now, skill: item.skill, game: item.game, item: item.id, ok, help: 0, ms: 0 });
+  }
+  // words block: two of three words built = the child reads pointed words, so the vowels count as learned
+  if (st.block === 'words' && !st.queue.length && st.blockOk >= 2) {
+    for (const v of VOWEL_UNITS) introduce(learner, v, now, 'placement');
+    introduce(learner, 'W2', now, 'placement');
   }
   if (st.block === 'letters2' && !st.queue.length && st.okLetters.length >= 11) {
     for (const id of EXTRAPOLATE) introduce(learner, 'L.' + id, now, 'placement');
@@ -104,6 +97,6 @@ export function answerPlacement(st: PlacementState, learner: Learner, ctx: GenCt
 }
 
 export function finishPlacement(learner: Learner, now: number): void {
-  for (const s of ['PA.first', 'PA.count', 'PA.blend']) introduce(learner, s, now, 'placement');
+  introduce(learner, 'PA.count', now, 'placement');
   learner.placementDone = true;
 }

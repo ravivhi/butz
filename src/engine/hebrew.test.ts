@@ -82,7 +82,8 @@ test('the audio inventory lists every spoken line once, NFC, without placeholder
   assert.equal(texts.size, all.length);
   assert.ok(all.length > 2000, String(all.length));
   for (const l of LETTERS) assert.ok(texts.has(l.say) && texts.has(l.name), l.id);
-  for (const g of GAMES) for (const m of g.mission) assert.ok(texts.has(m), g.id);
+  // v1.3: game instructions are written on screen, not spoken
+  for (const g of GAMES) assert.ok(texts.has(g.name) && !g.mission.some((m) => texts.has(m)), g.id);
   assert.ok(texts.has(BUTZ));
   assert.ok(all.every((s) => s.text === s.text.normalize('NFC') && !s.text.includes('#')));
 });

@@ -10,8 +10,8 @@ import type { Rng } from './rng.ts';
 export interface PlanCtx { learner: Learner; known: Known; now: number; minutes: number; storyToday: boolean; rng: Rng; spine: string[] }
 export interface PlannedActivity extends ActivitySpec { reason: 'review' | 'remediate' | 'teach' | 'practice' | 'story' }
 
-const HIGHER = ['WRITE', 'CV', 'W1', 'W2', 'W3', 'FIN', 'SIGHT', 'FLU.phrase', 'FLU.sentence', 'COMP.read'];
-const PA = ['PA.first', 'PA.count', 'PA.blend'];
+const HIGHER = ['WRITE', 'W2', 'W3', 'COMP.read'];
+const PA = ['PA.count'];
 
 /** Next spine unit to introduce (SPEC §7.3). v1.2: only the most recently taught units gate (older weak units keep being
     practised but never block new content), and a unit that is going fine (≥ 60 % of its last 4 answers) never blocks,
@@ -31,12 +31,11 @@ export function nextToIntroduce(ctx: PlanCtx, skip: string[] = []): string | und
   return l.recent.filter((a) => a.t > lastIntro).length >= MASTERY.stallAttempts ? next : undefined;
 }
 
+/** Show-me game for a new unit (v1.3, silent games only): a letter meets its picture words in The Missing Letter; a vowel
+    or reading feature is shown, then practised by building words that contain it in the Word Bakery. */
 export function teachGame(unit: string): GameId {
-  if (unit.startsWith('L.final')) return 'finalTransformer';
-  if (unit.startsWith('L.')) return 'soundLighthouse';
-  if (unit === 'V.shva') return 'syllableTrain';
-  if (unit.startsWith('V.') && unit !== 'V.hataf') return 'nikudMagnet';
-  return 'wordExplorer';
+  if (unit.startsWith('L.')) return 'missingLetter';
+  return 'wordBakery';
 }
 
 /** Games that can actually build items for this skill with the child's current units. */
@@ -45,14 +44,10 @@ export function gamesUsable(skill: string, l: Learner, known: Known): GameId[] {
   return gamesFor(skill)
     .map((g) => g.id)
     .filter((g) => {
-      if (g === 'nikudMagnet') return skill.startsWith('V.');
-      if (g === 'wordBakery') return (skill === 'W2' || skill === 'W3') && practiceable(skill, l, known);
-      if (g === 'syllableDJ' || g === 'secretPassword') return practiceable('CV', l, known);
-      if (g === 'syllableTrain' || g === 'wordExplorer') return practiceable(skill, l, known);
-      if (g === 'finalTransformer') return skill === 'FIN' ? practiceable('FIN', l, known) : known.has(skill);
+      if (g === 'wordBakery') return skill === 'W2' || skill === 'W3' ? practiceable(skill, l, known) : WORDS.some((w) => w.syl.length >= 2 && w.units.includes(skill));
       if (g === 'balloonPop') return !!letter && !letter.final;
       if (g === 'memoryMatch') return !!letter && !letter.final && !!keywordFor(letter.id);
-      if (g === 'missingLetter') return !!letter && WORDS.some((w) => w.firstLetter === letter.id && !w.units.includes('X.genuva'));
+      if (g === 'missingLetter') return !!letter && WORDS.some((w) => (letter.final ? w.lastLetter : w.firstLetter) === letter.id && !w.units.includes('X.genuva'));
       return true;
     });
 }
@@ -115,8 +110,8 @@ export function planSession(ctx: PlanCtx): PlannedActivity[] {
 
   const conf = confusions(l)[0];
   if (conf && conf.skill.startsWith('L.')) {
-    const recentRemediation = l.recent.slice(-20).some((a) => a.game === 'letterDetective' && a.skill === conf.skill);
-    push(activity(conf.skill, ctx, 'remediate', 'guided', [], recentRemediation ? 'soundLighthouse' : 'letterDetective', conf.skill.slice(2)));
+    const recentRemediation = l.recent.slice(-20).some((a) => a.game === 'missingLetter' && a.skill === conf.skill);
+    push(activity(conf.skill, ctx, 'remediate', 'guided', [], recentRemediation ? 'memoryMatch' : 'missingLetter', conf.skill.slice(2)));
   }
 
   const next = nextToIntroduce(ctx);
@@ -129,15 +124,17 @@ export function planSession(ctx: PlanCtx): PlannedActivity[] {
   }
 
   const focus = practiceFocus(ctx);
+  // the child reads the story alone, so it comes once the child can read one
+  const story = !ctx.storyToday && practiceable('COMP.read', l, ctx.known);
   for (const s of focus) {
-    if (acts.length >= maxActs - (ctx.storyToday ? 0 : 1)) break;
+    if (acts.length >= maxActs - (story ? 1 : 0)) break;
     push(activity(s, ctx, 'practice', 'independent', used));
   }
   if (acts.filter((a) => a.reason === 'practice').length < 2 && focus[0]) push(activity(focus[0], ctx, 'practice', 'independent', used));
 
-  if (!ctx.storyToday) {
-    const readNow = practiceable('COMP.read', l, ctx.known) && new Date(ctx.now).getDate() % 2 === 0;
-    push(readNow ? activity('COMP.read', ctx, 'story', 'independent', [], 'storyDetective') : activity('COMP.listen', ctx, 'story', 'independent', [], 'storyTime'));
+  if (story) {
+    const detective = new Date(ctx.now).getDate() % 2 === 0;
+    push(detective ? activity('COMP.read', ctx, 'story', 'independent', [], 'storyDetective') : activity('COMP.seq', ctx, 'story', 'independent', [], 'storyPuzzle'));
   }
   return acts.slice(0, maxActs);
 }
@@ -153,10 +150,12 @@ export function freePlaySpec(game: GameId, l: Learner, known: Known, rng: Rng): 
 }
 
 /** Every game is open (v1.1). When the child's units are not enough for a game, the next spine units are lent to it
-    (spec.known) and a unit the child has not met yet starts with a show-me demo. */
+    (spec.known) and a unit the child has not met yet starts with a show-me demo. Games with a letter picker start with it
+    (v1.3). */
 export function openPlaySpec(game: GameId, l: Learner, known: Known, rng: Rng, spine: string[]): ActivitySpec {
+  const pick = GAME[game].pick ? { pick: true } : {};
   const direct = freePlaySpec(game, l, known, rng);
-  if (direct) return direct;
+  if (direct) return { ...direct, ...pick };
   const ext = new Set(known);
   const extra: string[] = [];
   for (const u of spine) {
@@ -164,10 +163,10 @@ export function openPlaySpec(game: GameId, l: Learner, known: Known, rng: Rng, s
     ext.add(u);
     extra.push(u);
     const s = freePlaySpec(game, l, ext, rng);
-    if (s) return { ...s, known: extra, mode: isUnit(s.skill) && !known.has(s.skill) && !l.skills[s.skill] ? 'demo' : s.mode };
+    if (s) return { ...s, ...pick, known: extra, mode: isUnit(s.skill) && !known.has(s.skill) && !l.skills[s.skill] ? 'demo' : s.mode };
   }
-  return { game, skill: GAME[game].skills[0].replace('*', 'mem'), mode: 'independent', n: GAME[game].items, known: extra };
+  return { game, skill: GAME[game].skills[0].replace('*', 'mem'), mode: 'independent', n: GAME[game].items, known: extra, ...pick };
 }
 
 export const playedStoryToday = (l: Learner, now: number): boolean =>
-  l.recent.some((a) => (a.game === 'storyTime' || a.game === 'storyDetective') && dayKey(a.t) === dayKey(now));
+  l.recent.some((a) => (a.game === 'storyDetective' || a.game === 'storyPuzzle') && dayKey(a.t) === dayKey(now));

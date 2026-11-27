@@ -1,4 +1,4 @@
-/* Home (SPEC R-N1): one huge Continue button + map, notebooks, shop. First-run setup starts with the child's gender (R-PA2). */
+/* Home (SPEC R-N1): one huge Map button (the only way to a game), notebooks, shop. First-run setup starts with the child's gender (R-PA2). */
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { createProfile, go, switchProfile, useProfile, useStore } from '../state/store';
@@ -47,7 +47,7 @@ export function Home() {
   const pal = usePalette();
   const { s, short, landscape } = useLayout();
   const many = useStore((st) => st.profiles.length > 1);
-  const surprise = p.wallet.stars >= envelopePrice(p.wallet);
+  const surprise = p.wallet.stars >= envelopePrice(p.wallet) || !!p.wallet.golden;
   return (
     <Screen testID="home">
       <View style={{ flexDirection: ROW, alignItems: 'center', justifyContent: 'space-between', padding: s(12) }}>
@@ -70,10 +70,9 @@ export function Home() {
             <HelpButton text={g(SAY.homeHelp, p.gender)} attention={!p.sessions.length} />
           </View>
           <LatestStickers />
-          <Big label="מַמְשִׁיכִים!" emoji="▶️" size="xl" color={pal.green} onPress={() => go(p.learner.placementDone ? { name: 'play', source: 'session' } : { name: 'placement' })} testID="continue" glow />
+          <Big label="מַפָּה" emoji="🗺️" size="xl" color={pal.green} onPress={() => go({ name: 'map' })} testID="nav-map" glow />
         </View>
         <View style={{ flexDirection: landscape ? 'column' : ROW, gap: s(14), flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Big label="מַפָּה" emoji="🗺️" size="m" color={pal.blue} onPress={() => go({ name: 'map' })} testID="nav-map" />
           <Big label="מַחְבָּרוֹת" emoji={surprise ? '✉️' : '📒'} size="m" color={pal.purple} onPress={() => go({ name: 'notebooks' })} testID="nav-notebooks" glow={surprise} />
           <Big label="חֲנוּת" emoji="🛍️" size="m" color={pal.pink} onPress={() => go({ name: 'shop' })} testID="nav-shop" />
         </View>

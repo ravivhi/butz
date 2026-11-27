@@ -265,6 +265,28 @@ export function analyzeWord(word: string, katan = false): Analysis {
   };
 }
 
+/** Indices of the clusters read as consonants (not a vowel letter such as וּ / וֹ / the י of חִירִיק מָלֵא, and not a quiet
+    א / ה). Same rules as analyzeWord. The Missing Letter hides only these. */
+export function consonantIndices(word: string): number[] {
+  const cs = clusters(word);
+  const out: number[] = [];
+  let prevHasVowel = false;
+  for (let i = 0; i < cs.length; i++) {
+    const c = cs[i], prev = cs[i - 1], next = cs[i + 1], isLast = i === cs.length - 1;
+    if (c.base === 'ו' && !c.holamOnVav) {
+      const prevBare = !prev || prev.vowel === null;
+      if (c.dagesh && c.vowel === null && prevBare) { prevHasVowel = true; continue; }
+      if (c.vowel === 'holam' && prevBare && prev) { prevHasVowel = true; continue; }
+    }
+    if (c.base === 'י' && c.vowel === null && !c.dagesh && prev && (prev.vowel === 'hiriq' || prev.vowel === 'tsere' || prev.vowel === 'segol')) continue;
+    const carriesVav = !!next && next.base === 'ו' && !next.holamOnVav && ((next.dagesh && next.vowel === null) || next.vowel === 'holam');
+    if (c.vowel === null && prevHasVowel && ((c.base === 'א' && !carriesVav) || (c.base === 'ה' && isLast && !c.dagesh))) continue;
+    out.push(i);
+    prevHasVowel = c.vowel !== null && c.vowel !== 'sheva';
+  }
+  return out;
+}
+
 /** Units of a whole text (sentence/story), word by word. */
 export function textWords(text: string): string[] {
   return nfc(text).split(/[\s\u05BE\-]+/).map((w) => w.replace(/[^\u0591-\u05C7\u05D0-\u05EA]/g, '')).filter(Boolean);

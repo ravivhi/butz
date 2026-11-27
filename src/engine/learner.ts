@@ -34,6 +34,10 @@ export interface Learner {
   seen: Record<string, number>;
   /** A parent asked to move on ("להתקדם עכשיו"): the next spine unit is introduced regardless of readiness. */
   pushNext?: number;
+  /** v1.3 hidden difficulty per game: a rating in [1, 6); the level is its integer part (1 easy … 5 hard). */
+  levels?: Record<string, number>;
+  /** Letters the child last chose in a game's letter picker (letter ids). */
+  picks?: Record<string, string[]>;
 }
 
 export const DAY = 24 * 3600 * 1000;
@@ -45,7 +49,7 @@ export const MASTERY = {
   minGames: 2,
   minDays: 2,
   freshShare: 0.5,
-  freshSkills: ['CV', 'W1', 'W2', 'W3', 'SIGHT', 'FIN', 'X.quiet', 'V.shva', 'COMP.read', 'COMP.listen'],
+  freshSkills: ['W2', 'W3', 'X.quiet', 'V.shva', 'COMP.read'],
   reviewDays: [1, 3, 7, 14, 30],
   reviewPass: 0.8,
   reviewFail: 0.7,
@@ -61,7 +65,33 @@ export const MASTERY = {
   keepOkItems: 300,
 };
 
-export const newLearner = (): Learner => ({ skills: {}, recent: [], placementDone: false, seen: {} });
+export const newLearner = (): Learner => ({ skills: {}, recent: [], placementDone: false, seen: {}, levels: {}, picks: {} });
+
+/** Hidden difficulty (v1.3): every game starts easy; independent successes raise it, misses lower it. The child never
+    sees the level. Crossing into a level leaves a margin, so one slip right after a level change does not undo it. */
+export const LEVELS = { max: 5, up: 0.25, help1: -0.2, help2: -0.5, marginUp: 0.35, marginDown: 0.6 };
+export type Level = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+/** The story games (5 to 30 sentences) and the Word Bakery (2 to 7 parts) have eight levels; the other games five. */
+export const maxLevel = (game: string): number => (game.startsWith('story') || game === 'wordBakery' ? 8 : LEVELS.max);
+
+export function gameLevel(l: Learner, game: string): Level {
+  const r = l.levels?.[game] ?? 1;
+  return Math.max(1, Math.min(maxLevel(game), Math.floor(r))) as Level;
+}
+
+/** Update a game's hidden level after one scored answer (help 0 = right on the first try). Returns the new level. */
+export function adjustLevel(l: Learner, game: string, help: 0 | 1 | 2): Level {
+  l.levels ??= {};
+  const before = gameLevel(l, game);
+  const delta = help === 0 ? LEVELS.up : help === 1 ? LEVELS.help1 : LEVELS.help2;
+  const max = maxLevel(game);
+  let r = Math.max(1, Math.min(max + 0.99, (l.levels[game] ?? 1) + delta));
+  const after = Math.max(1, Math.min(max, Math.floor(r)));
+  if (after > before) r = Math.max(r, after + LEVELS.marginUp);
+  if (after < before) r = Math.min(r, after + LEVELS.marginDown);
+  l.levels[game] = Math.round(r * 100) / 100;
+  return gameLevel(l, game);
+}
 
 /** Remember that content was shown now (so it is not repeated soon). Keeps the map bounded. */
 export function markSeen(l: Learner, keys: string[], now: number): void {

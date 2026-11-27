@@ -24,7 +24,10 @@ const spoken = (page: Page) => page.evaluate(() => (window as any).__spoken as s
 const stars = (page: Page) => page.evaluate(() => { const s = (window as any).__butz.getState(); return s.profiles.find((p: any) => p.id === s.currentId).wallet.stars as number; });
 
 interface Pt { x: number; y: number }
-interface Snap { phase?: string; key: string; item?: { id: string; game: string; answer?: string; accept?: string[]; sequence?: string[]; targets?: string[]; count?: number; pages?: boolean; phrases?: number; options: string[]; trace?: Pt[][] } }
+interface Snap {
+  phase?: string; key: string;
+  item?: { id: string; game: string; answer?: string; accept?: string[]; sequence?: string[]; targets?: string[]; count?: number; pages?: boolean; story?: boolean; phrases?: number; options: string[]; gaps?: { answer: string; options: string[] }[]; trace?: Pt[][] };
+}
 async function snap(page: Page): Promise<Snap> {
   return page.evaluate(() => {
     const g = (window as any).__butzGame;
@@ -32,7 +35,10 @@ async function snap(page: Page): Promise<Snap> {
     const it = g.item;
     return {
       phase: g.phase, key: `${g.phase}|${g.ai ?? ''}|${g.ii ?? ''}|${it?.id ?? ''}`,
-      item: it && { id: it.id, game: it.game, answer: it.answer, accept: it.accept, sequence: it.sequence, targets: it.targets, count: it.count, pages: it.pages, phrases: it.sentence?.phrases.length, options: it.options.map((o: any) => o.id), trace: it.trace?.points },
+      item: it && {
+        id: it.id, game: it.game, answer: it.answer, accept: it.accept, sequence: it.sequence, targets: it.targets, count: it.count, pages: it.pages, story: !!it.story,
+        phrases: it.sentence?.phrases.length, options: it.options.map((o: any) => o.id), gaps: it.gaps?.map((x: any) => ({ answer: x.answer, options: x.options.map((o: any) => o.id) })), trace: it.trace?.points,
+      },
     };
   });
 }
@@ -56,29 +62,33 @@ async function trace(page: Page, strokes: Pt[][]) {
 /** Answer the current item: correctly, or (wrong=true) with a wrong first choice when the mechanic allows it. */
 async function answer(page: Page, s: Snap, wrong = false) {
   const it = s.item!;
-  if (it.pages) { await tap(page, 'page-next'); return; }
+  if (it.pages) { await tap(page, 'story-done'); return; }
   const right = it.answer ?? it.accept?.[0];
   const other = it.options.find((o) => o !== right && !(it.accept ?? []).includes(o));
   switch (it.game) {
-    case 'letterDetective': for (const t of it.targets!) await tap(page, 'cell-' + t); return;
     // balloons bob all the time, so Playwright's "stable element" wait would never end
     case 'balloonPop': for (const t of it.targets!) await page.getByTestId('cell-' + t).first().click({ force: true, timeout: 8000 }); return;
     case 'memoryMatch':
-      for (const o of it.options.filter((x) => x.startsWith('L:'))) { await tap(page, 'card-' + o); await tap(page, 'card-P:' + o.slice(2)); await page.waitForTimeout(600); }
+      // matched cards are disabled; a pair tapped while two cards were still turning over is tried again
+      for (const o of it.options.filter((x) => x.startsWith('L:'))) {
+        const card = page.getByTestId('card-' + o).first();
+        for (let t = 0; t < 3 && !(await card.isDisabled({ timeout: 500 }).catch(() => true)); t++) {
+          await tap(page, 'card-' + o);
+          await tap(page, 'card-P:' + o.slice(2));
+          await expect(card).toBeDisabled({ timeout: 1500 }).catch(() => page.waitForTimeout(1200));
+        }
+      }
       return;
     case 'letterTrace': await trace(page, it.trace!); return;
     case 'wordBakery': for (const b of it.sequence!) await tap(page, 'blk-' + b); return;
     case 'syllableHop': for (let i = 0; i < it.count!; i++) await tap(page, 'stone-add'); await tap(page, 'jump'); return;
-    case 'secretPassword': await tap(page, 'opt-' + (wrong && other ? other : right)); await tap(page, 'open-door'); return;
-    case 'echoReader':
-      if (await visible(page, 'read-done')) await tap(page, 'read-done');
-      await tap(page, 'opt-' + right);
-      await page.getByTestId('echo-done').click({ timeout: 15000 });
-      return;
-    case 'phraseTrain':
-      for (let i = 0; i < it.phrases!; i++) await tap(page, 'phrase-' + i);
-      await tap(page, 'opt-' + right);
-      await page.getByTestId('echo-done').click({ timeout: 15000 });
+    case 'missingLetter':
+      for (const [j, gp] of it.gaps!.entries()) {
+        const miss = gp.options.find((o) => o !== gp.answer);
+        if (wrong && j === 0 && miss) await tap(page, 'opt-' + miss);
+        await tap(page, 'opt-' + gp.answer);
+        await page.waitForTimeout(250);
+      }
       return;
     default:
       if (it.sequence) { for (const c of it.sequence) await tap(page, 'card-' + c); return; }
@@ -114,6 +124,13 @@ async function playUntil(page: Page, until: string, opts: { wrong?: boolean; max
 
 const N = (s: string) => s.normalize('NFC');
 const state = (page: Page) => page.evaluate(() => (window as any).__butz.getState());
+/** Free play of one game, optionally at a hidden level. */
+const freePlay = (page: Page, game: string, level?: number) => page.evaluate(([g, lv]) => {
+  const s = (window as any).__butz.getState();
+  if (lv) s.profiles[0].learner.levels = { ...(s.profiles[0].learner.levels ?? {}), [g as string]: lv };
+  (window as any).__spoken.length = 0;
+    (window as any).__butz.go({ name: 'play', game: g });
+}, [game, level ?? 0] as const);
 
 async function firstRun(page: Page, name: string, wrong = false, gender: 'boy' | 'girl' = 'girl') {
   await page.addInitScript(FAKE_SPEECH);
@@ -125,11 +142,12 @@ async function firstRun(page: Page, name: string, wrong = false, gender: 'boy' |
   await page.getByTestId('avatar-🐼').click();
   await page.getByTestId('start').click();
   await expect(page.getByTestId('placement-intro')).toBeVisible();
+  await expect(page.getByTestId('placement-text')).toBeVisible();
   await page.getByTestId('placement-start').click();
   await playUntil(page, 'placement-done', { wrong });
 }
 
-test('first run: gender first, starting check, a full session, a live sticker', async ({ page }) => {
+test('first run: gender first, starting check, a game from the map, a live sticker', async ({ page }) => {
   const errors = trackErrors(page);
   await firstRun(page, 'נועה');
   const p0 = (await state(page)).profiles[0];
@@ -137,13 +155,15 @@ test('first run: gender first, starting check, a full session, a live sticker', 
   expect(p0.wallet.owned).toEqual(['animals', 'magic']);
   expect(await stars(page)).toBe(10);
   await tap(page, 'placement-continue');
+  await expect(page.getByTestId('map')).toBeVisible();
+  await tap(page, 'game-syllableHop');
   await playUntil(page, 'session-end');
   const said = await spoken(page);
   // Silent by default: no instruction, stimulus, praise or end-of-activity line is read unless the child taps.
   const chatter = ['הַקְשִׁיבִי', 'גְּעִי', 'כָּל הַכָּבוֹד', 'יֹפִי', 'סִיַּמְנוּ', 'אֵיזוֹ הַרְפַתְקָה', 'אֲנִי בּוּטְס'].map(N);
   expect(said.filter((t) => chatter.some((c) => t.includes(c)))).toEqual([]);
-  // Stickers are within reach: the placement stars plus one session buy an envelope (5 stars).
-  expect(await stars(page)).toBeGreaterThanOrEqual(10 + 3);
+  // Stickers are within reach: the placement stars plus one game buy an envelope (5 stars).
+  expect(await stars(page)).toBeGreaterThanOrEqual(10 + 2);
   await page.evaluate(() => { const s = (window as any).__butz.getState(); s.profiles[0].wallet.stars = 7; (window as any).__butz.go({ name: 'notebook', id: s.profiles[0].wallet.active, open: true }); });
   await tap(page, 'envelope');
   await expect(page.getByTestId('reveal')).toBeVisible();
@@ -161,13 +181,14 @@ test('first run: gender first, starting check, a full session, a live sticker', 
   expect(errors).toEqual([]);
 });
 
-test('nothing is spoken unless the child taps 👂 / 🔊 / 💡, and Butz is said with shuruk', async ({ page }) => {
+test('instructions are written, nothing is spoken unless the child taps 🔊 / 💡, and Butz is said with shuruk', async ({ page }) => {
   const errors = trackErrors(page);
   await firstRun(page, 'רוני');
   expect(await spoken(page), 'the starting check is silent too').toEqual([]);
   await tap(page, 'placement-continue');
   await tap(page, 'close');
   await expect(page.getByTestId('home')).toBeVisible();
+  await expect(page.getByTestId('continue'), 'the map is the only way to a game').toHaveCount(0);
   await page.waitForTimeout(800);
   expect(await spoken(page)).toEqual([]);
   await tap(page, 'nav-map');
@@ -178,34 +199,36 @@ test('nothing is spoken unless the child taps 👂 / 🔊 / 💡, and Butz is sa
   const help = (await spoken(page)).join(' ');
   expect(help).toContain(N('בּוּטְס'));
   expect(help).not.toContain(N('בּוּץ'));
-  await page.evaluate(() => { (window as any).__spoken.length = 0; (window as any).__butz.go({ name: 'play', source: 'free', game: 'soundSafari' }); });
-  await expect(page.getByTestId('mission')).toBeVisible();
+  await freePlay(page, 'syllableHop');
+  // the game's instructions are on the mission card, in the girl's form, and are not read aloud
+  await expect(page.getByTestId('mission-text')).toContainText(N('הוֹסִיפִי'));
+  await expect(page.getByTestId('help-mission')).toHaveCount(0);
   await page.waitForTimeout(800);
   expect(await spoken(page)).toEqual([]);
-  await tap(page, 'help-mission');
-  await expect.poll(async () => (await spoken(page)).join(' ')).toContain(N('וְהַקְשִׁיבִי לַמִּלָּה'));
-  await page.evaluate(() => { (window as any).__spoken.length = 0; });
   await tap(page, 'go');
+  await expect(page.getByTestId('instruction')).toContainText(N('הוֹסִיפִי'));
   await page.waitForTimeout(1000);
   expect(await spoken(page), 'the stimulus waits for 🔊').toEqual([]);
   await tap(page, 'replay');
-  await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(1);
+  await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(0);
   // the parent can turn read-aloud back on
-  await page.evaluate(() => { const s = (window as any).__butz.getState(); s.profiles[0].settings.autoSpeak = true; (window as any).__spoken.length = 0; (window as any).__butz.go({ name: 'play', source: 'free', game: 'soundSafari' }); });
+  await page.evaluate(() => { const s = (window as any).__butz.getState(); s.profiles[0].settings.autoSpeak = true; });
+  await freePlay(page, 'syllableHop');
   await tap(page, 'go');
-  await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(1);
+  await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
 
-test('beginner boy: the first session teaches the first letter with a demonstration, wrong answers get help', async ({ page }) => {
+test('beginner boy: a letter game on the map starts with a demonstration of the first letter, wrong answers get help', async ({ page }) => {
   const errors = trackErrors(page);
   await firstRun(page, 'יוסי', true, 'boy');
   const learner = (await state(page)).profiles[0].learner;
   expect(Object.keys(learner.skills).some((s: string) => s.startsWith('L.'))).toBeFalsy();
   await tap(page, 'placement-continue');
+  await tap(page, 'game-missingLetter');
   await expect(page.getByTestId('play')).toBeVisible();
   const plan = await page.evaluate(() => (window as any).__butzPlan);
-  expect(plan.some((a: any) => a.reason === 'teach' && a.skill === 'L.mem')).toBeTruthy();
+  expect(plan.map((a: any) => [a.mode, a.skill])).toEqual([['demo', 'L.mem']]);
   await playUntil(page, 'session-end', { wrong: true });
   const said = await spoken(page);
   const tryAgain = ['כִּמְעַט! נְנַסֶּה שׁוּב?', 'נַקְשִׁיב שׁוּב…', 'לֹא נוֹרָא, עוֹד פַּעַם!', 'נַסֵּה שׁוּב, אַתָּה יָכוֹל!'].map(N);
@@ -215,61 +238,154 @@ test('beginner boy: the first session teaches the first letter with a demonstrat
   expect(after.how).toBe('demo');
   expect(after.att.some((a: any) => a.help > 0), 'a miss raises the help level').toBeTruthy();
   expect(Object.keys((await state(page)).profiles[0].learner.seen).length).toBeGreaterThan(0);
-  // the show-me speaks when the child taps 🔊
-  await page.evaluate(() => { (window as any).__spoken.length = 0; (window as any).__butz.go({ name: 'play', source: 'free', game: 'nikudMagnet' }); });
+  // the show-me is written, and speaks when the child taps 🔊
+  await freePlay(page, 'wordBakery');
   await tap(page, 'go');
+  await expect(page.getByTestId('demo')).toBeVisible();
   await tap(page, 'demo-again');
   await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
 
-test('every game is open from the map, even for a beginner, and can be played', async ({ page }) => {
+test('the map lists every game in learning order (no worlds); each is open, even for a beginner, and can be played', async ({ page }) => {
   test.setTimeout(900_000);
   const errors = trackErrors(page);
   await firstRun(page, 'דנה', true);
   await page.evaluate(() => (window as any).__butz.go({ name: 'map' }));
-  const worlds = await page.locator('[data-testid^="world-"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')!.slice(6)));
-  expect(worlds).toEqual(['storytime', 'forest', 'island', 'writing', 'workshop', 'train', 'mountain', 'museum', 'theatre', 'kingdom']);
+  const games = await page.locator('[data-testid^="game-"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')!.slice(5)));
+  expect(games).toEqual(['syllableHop', 'memoryMatch', 'balloonPop', 'letterTrace', 'missingLetter', 'wordBakery', 'storyDetective', 'storyPuzzle']);
+  await expect(page.locator('[data-testid^="golden-"]'), 'the two story games are golden').toHaveCount(2);
+  await expect(page.getByTestId('golden-storyDetective')).toBeVisible();
+  await expect(page.getByTestId('golden-storyPuzzle')).toBeVisible();
   await expect(page.getByText('🔒')).toHaveCount(0);
-  let played = 0;
-  for (const w of worlds) {
-    await page.evaluate((world) => (window as any).__butz.go({ name: 'world', world }), w);
-    const games = await page.locator('[data-testid^="game-"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')!.slice(5)));
-    for (const g of games) {
-      await page.evaluate((world) => (window as any).__butz.go({ name: 'world', world }), w);
-      await tap(page, 'game-' + g);
-      await playUntil(page, 'session-end');
-      played++;
-      await tap(page, 'home-btn');
-    }
+  for (const g of games) {
+    await page.evaluate(() => (window as any).__butz.go({ name: 'map' }));
+    await tap(page, 'game-' + g);
+    await playUntil(page, 'session-end');
+    await tap(page, 'home-btn');
   }
-  // 22 games; Story Puzzle appears in two worlds
-  expect(played).toBe(23);
   expect(errors).toEqual([]);
 });
 
-test('writing workshop: letters are written with a finger along the strokes', async ({ page }) => {
+test('writing: each letter is written in print and then in cursive, along the strokes', async ({ page }) => {
   const errors = trackErrors(page);
   await firstRun(page, 'עדי', true, 'boy');
-  await page.evaluate(() => (window as any).__butz.go({ name: 'play', source: 'free', game: 'letterTrace' }));
+  await freePlay(page, 'letterTrace');
+  await expect(page.getByTestId('picker')).toBeVisible();
+  await tap(page, 'pick-gimel');
   await tap(page, 'go');
   await expect(page.getByTestId('trace-board')).toBeVisible();
+  await expect(page.getByTestId('script-print')).toBeVisible();
   // a scribble that does not start at the red dot writes nothing
   const s0 = await snap(page);
+  expect(s0.item!.id).toBe('tr:print:' + N('ג'));
   const box = (await page.getByTestId('trace-board').boundingBox())!;
   await page.mouse.move(box.x + 5, box.y + box.height - 5);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width - 5, box.y + box.height - 5, { steps: 8 });
   await page.mouse.up();
   expect((await snap(page)).key).toBe(s0.key);
+  await trace(page, s0.item!.trace!);
+  await expect.poll(async () => (await snap(page)).item?.id).toBe('tr:cursive:' + N('ג'));
+  await expect(page.getByTestId('script-cursive')).toBeVisible();
   await playUntil(page, 'session-end');
-  const write = (await state(page)).profiles[0].learner.skills.WRITE;
-  expect(write.att.length).toBe(3);
-  expect(write.att.every((a: any) => a.ok)).toBeTruthy();
+  const p = (await state(page)).profiles[0];
+  expect(p.learner.skills.WRITE.att.length).toBe(2);
+  expect(p.learner.skills.WRITE.att.every((a: any) => a.ok)).toBeTruthy();
+  expect(p.learner.picks.letterTrace).toEqual(['gimel']);
   expect(errors).toEqual([]);
 });
 
-test('grown-ups area: gate, report, settings, voice check with the name, gender, second child', async ({ page }) => {
+test('balloons: the letter is shown in print, the balloons are in cursive, and the child picks the letters', async ({ page }) => {
+  const errors = trackErrors(page);
+  await firstRun(page, 'ליה');
+  await freePlay(page, 'balloonPop');
+  await expect(page.getByTestId('picker')).toBeVisible();
+  await tap(page, 'pick-finalMem');
+  await tap(page, 'pick-shin');
+  await tap(page, 'pick-alef');
+  await tap(page, 'pick-gimel');
+  await tap(page, 'go');
+  const it = await page.evaluate(() => (window as any).__butzGame.item);
+  expect([N('ם'), N('ש'), N('א'), N('ג')]).toContain(it.show.letter);
+  expect(await page.evaluate(() => (window as any).__butzGame.n), 'more than three letters: one board each').toBe(4);
+  expect(it.options.every((o: any) => o.font === 'cursive')).toBeTruthy();
+  const font = await page.getByTestId('cell-' + it.targets[0]).first().evaluate((el, ch) => {
+    const leaf = [...el.querySelectorAll('*')].find((n) => n.children.length === 0 && n.textContent === ch) as HTMLElement;
+    return getComputedStyle(leaf).fontFamily;
+  }, it.show.letter);
+  expect(font).toContain('DanaYad');
+  await expect.poll(() => page.evaluate(() => [...(document as any).fonts].some((f: any) => f.family.replace(/"/g, '') === 'DanaYad' && f.status === 'loaded'))).toBeTruthy();
+  await playUntil(page, 'session-end');
+  expect((await state(page)).profiles[0].learner.picks.balloonPop).toEqual(['finalMem', 'shin', 'alef', 'gimel']);
+  expect(errors).toEqual([]);
+});
+
+test('stories: the whole story is one page of text, every question can go back to it, hard stories are long', async ({ page }) => {
+  const errors = trackErrors(page);
+  await firstRun(page, 'שירה');
+  await freePlay(page, 'storyDetective', 8);
+  await tap(page, 'go');
+  await expect(page.getByTestId('story-scroll')).toBeVisible();
+  await expect.poll(() => page.locator('[data-testid^="sent-"]').count()).toBeGreaterThanOrEqual(30);
+  await tap(page, 'story-done');
+  const q = await snap(page);
+  expect(q.item!.story).toBeTruthy();
+  if (await visible(page, 'story-open')) {
+    // phone: the story is one tap away, and the question waits
+    await tap(page, 'story-open');
+    await expect(page.getByTestId('story-again')).toBeVisible();
+    await expect(page.getByTestId('opt-' + q.item!.answer)).toBeHidden();
+    await tap(page, 'story-close');
+  } else {
+    // tablet in landscape: the story stays beside the questions
+    await expect(page.getByTestId('story-again')).toBeVisible();
+  }
+  await tap(page, 'opt-' + q.item!.answer);
+  await playUntil(page, 'session-end');
+  // a story read well pays the most: more stars and a golden envelope with a sparkling sticker
+  expect(await stars(page)).toBeGreaterThanOrEqual(10 + 3);
+  await tap(page, 'open-golden');
+  await tap(page, 'golden-envelope');
+  await expect(page.getByTestId('reveal')).toBeVisible();
+  await tap(page, 'place-sticker');
+  const wallet = (await state(page)).profiles[0].wallet;
+  expect(wallet.golden).toBe(0);
+  expect(Object.values(wallet.stickers).flat().some((x: any) => [4, 13, 22, 29].includes(Number(String(x).split(':')[1]))), 'a sparkling sticker').toBeTruthy();
+  // guessing earns nothing: every question answered wrong first
+  const before = await stars(page);
+  await freePlay(page, 'storyDetective', 3);
+  await playUntil(page, 'session-end', { wrong: true });
+  await expect(page.getByTestId('no-prize')).toBeVisible();
+  expect(await stars(page)).toBe(before);
+  expect((await state(page)).profiles[0].wallet.golden).toBe(0);
+  // the child reads the story alone: nothing reads it aloud; level 3 stories have 10-12 sentences
+  await freePlay(page, 'storyPuzzle', 3);
+  await tap(page, 'go');
+  await expect(page.getByTestId('sent-9')).toBeAttached();
+  expect(await page.locator('[data-testid^="sent-"]').count()).toBeLessThan(13);
+  await expect(page.getByTestId('story-listen')).toHaveCount(0);
+  await page.waitForTimeout(800);
+  expect(await spoken(page)).toEqual([]);
+  await tap(page, 'story-done');
+  await playUntil(page, 'session-end');
+  expect(errors).toEqual([]);
+});
+
+test('hidden levels: a hard Missing Letter has three boxes, success keeps it hard, the child never sees a level', async ({ page }) => {
+  const errors = trackErrors(page);
+  await firstRun(page, 'אור');
+  await freePlay(page, 'missingLetter', 5);
+  await tap(page, 'go');
+  const s = await snap(page);
+  expect(s.item!.gaps!.length).toBe(3);
+  await expect(page.getByTestId('gap-2')).toBeVisible();
+  await playUntil(page, 'session-end');
+  expect((await state(page)).profiles[0].learner.levels.missingLetter).toBeGreaterThanOrEqual(5);
+  expect(errors).toEqual([]);
+});
+
+test('grown-ups area: gate, report with hidden levels, settings, voice check with the name, gender, second child', async ({ page }) => {
   const errors = trackErrors(page);
   await firstRun(page, 'מיה');
   await tap(page, 'placement-continue');
@@ -284,6 +400,7 @@ test('grown-ups area: gate, report, settings, voice check with the name, gender,
   await tap(page, 'gate-answer');
   await expect(page.getByTestId('report')).toBeVisible();
   await expect(page.getByTestId('strand-letters')).toBeVisible();
+  await expect(page.getByTestId('level-storyDetective')).toBeVisible();
   await tap(page, 'tab-settings');
   await tap(page, 'set-minutes-12');
   await tap(page, 'school-V.a');

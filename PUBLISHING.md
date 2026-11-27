@@ -4,7 +4,12 @@ You (the AI agent) are helping the account owner publish a finished Hebrew readi
 is complete and tested. Your job is to **build it, test it on a real device, and publish it on Google Play**. Do not
 redesign or rewrite the app. Follow the steps in order and stop at every **ASK THE OWNER** point.
 
-The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip as `PUBLISHING.md`).
+The project is in `Butz_Hebrew_Reading_2026-11-27.zip` (this file is also in the zip as `PUBLISHING.md`). Unzip it; the
+project is the folder `butz-hebrew-reading/`.
+
+**Just want to try it?** Install Node.js 24+, unzip, then in `butz-hebrew-reading/` run `npm ci` and
+`npx expo start --web` (opens in the browser; Microsoft Edge has the best Hebrew voice), or `npx expo start` and scan the
+QR code with the **Expo Go** app on a phone or tablet (same Wi-Fi). Everything below is for publishing on Google Play.
 
 ## 0. What you are publishing
 
@@ -18,13 +23,20 @@ The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip
   the app on all phones** (on the next launch with internet); a new Play upload is needed only when `android-twa/`
   itself changes (icon, name, colors, Android version). Expo is used only for the web build (`expo export -p web`);
   EAS Build and `eas.json` are not used.
+- Content (27 Nov 2026): 8 games (קְפִיצַת הֲבָרוֹת, בָּלוֹנֵי אוֹתִיּוֹת, זוּגוֹת שֶׁל אוֹתִיּוֹת, כּוֹתְבִים אוֹתִיּוֹת, הָאוֹת הַחֲסֵרָה,
+  מַאֲפִיַּת הַמִּלִּים, בַּלַּשׁ הַסִּפּוּרִים, פָּאזֶל הַסִּפּוּר), listed on the map in learning order and all open; 528 picture words,
+  55 sight words, 72 sentences and 146 stories; hidden difficulty levels that follow the child; letters written in
+  print, then cursive.
 - Speech: recorded clips first (generated once with Microsoft's official Azure neural Hebrew voice, see §2b and
-  `docs/AUDIO.md`), otherwise the device's text-to-speech engine. On Android that is **Speech Services by Google** with
-  the **Hebrew** voice installed. The app is **quiet by default**: it speaks only when the child taps 👂 or 🔊.
+  `docs/AUDIO.md`; **the zip has no clips yet**), otherwise the device's text-to-speech engine. On Android that is
+  **Speech Services by Google** with the **Hebrew** voice installed. The app is **quiet by default**: instructions are
+  written on the screen, and it speaks only when the child taps 🔊 (the sound or word), 💡 (a hint) or 👂 (explain).
 - The mascot's name is **בּוּץ with shuruk ("Butz")**, never בּוֹץ ("botz" = mud). The app already speaks it as
   `בּוּטְס` so TTS says "Butz". Keep the nikud in every store text.
-- Store assets are ready in `store/`: `play-icon-512.png`, `feature-graphic-1024x500.png`, and `screenshots/`
-  (8 phone at 1080×1920 and 8 tablet at 2048×1536).
+- Store assets in `store/`: `play-icon-512.png`, `feature-graphic-1024x500.png`, and `screenshots/` (8 phone at
+  1080×1920 and 8 tablet at 2048×1536). The screenshots are from 24 Nov, before the map and several games changed:
+  regenerate them before the store listing (`npm run build:web`, `node scripts/serve.mjs dist 8099`, then
+  `node scripts/shots.mjs`; see `AGENTS.md`).
 - Developer docs: `AGENTS.md` (commands, rules) and `docs/SPEC.md` (full spec). Read `AGENTS.md` before changing
   anything.
 
@@ -41,7 +53,7 @@ The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip
 
 **ASK THE OWNER** before you start:
 
-1. **Package id.** Keep `com.butz.hebrewreading`, or use their own (e.g. `com.<theirname>.butz`)? It must be unique on
+1. **Package id.** Decided: `com.raviv.butz`. It must be unique on
    Google Play and **can never change after the first upload**.
 2. **Account type.** Is the Play developer account **personal** or **organization**, and when was it created? (§8)
 3. **Contact email** to show in the store listing and the privacy policy.
@@ -53,11 +65,11 @@ The project is in `Butz_Hebrew_Reading_v1.1.0.zip` (this file is also in the zip
 # unzip to a short path without spaces, e.g. C:\dev\butz or ~/dev/butz
 cd butz-hebrew-reading
 npm ci                 # installs node_modules inside the project (~1 minute)
-npm run check          # content validation + 45 unit tests + TypeScript; all must pass
+npm run check          # content validation + 59 unit tests + TypeScript; all must pass
 ```
 
-Optional: `npm run e2e` runs the 14 end-to-end tests. It needs Microsoft Edge installed (Playwright uses the
-`msedge` channel).
+Optional: `npm run e2e` runs the 20 end-to-end tests (10 scenarios, phone and tablet). It needs Microsoft Edge installed
+(Playwright uses the `msedge` channel). All checks passed on the zipped version (27 Nov 2026).
 
 If you changed the package id, edit `app.json` → `expo.android.package` (and `expo.ios.bundleIdentifier` to match).
 Change nothing else in `app.json` unless a step below says so.
@@ -119,11 +131,13 @@ checklist and report the results to the owner:
 - [ ] Airplane mode, then reopen the app: it still works.
 
 - [ ] The first screen asks **בֵּן / בַּת** (boy/girl), then name and animal friend, then a short starting game.
-- [ ] Nothing is read aloud by itself — not when a screen opens, not during games. 👂 speaks the instructions, 🔊 (it
-      wiggles on listening tasks) plays the sound or word, 💡 gives a hint.
+- [ ] Nothing is read aloud by itself — not when a screen opens, not during games. Instructions are written on the
+      screen; 🔊 plays the sound or word, 💡 gives a hint, 👂 explains.
 - [ ] Hebrew speech works when 🔊 is tapped. If it is silent, install the Google Hebrew voice (§1).
-- [ ] Map: every world is open. **סַדְנַת הַכְּתִיבָה** (writing workshop): write a letter with a finger from the red dot
-      along the grey path; the ink follows and the next letter comes.
+- [ ] Map: all 8 games are listed in learning order and every one opens, even for a beginner. **כּוֹתְבִים אוֹתִיּוֹת**:
+      write a letter with a finger from the red dot along the grey path, first in print, then in cursive.
+      **בָּלוֹנֵי אוֹתִיּוֹת**: the letter is shown in print, the balloons are in cursive.
+- [ ] Stories (בַּלַּשׁ הַסִּפּוּרִים, פָּאזֶל הַסִּפּוּר): the whole story is one page, and every question can go back to it.
 - [ ] Grown-ups area (⚙️ on Home): press and hold the lock button 3 seconds, then answer the addition question. Go
       to **בדיקת קול** (voice check) and press ▶ next to the name. It must sound like **"Butz"** (u as in "put"), not
       "botz". If it sounds wrong, tell the owner; a recorded clip can be added (`src/services/clips.ts`).
@@ -196,14 +210,14 @@ Play Console → **Create app**:
 
 "קוראים עם בּוּץ" לוקחת ילדים בני 5–8 צעד אחר צעד: מצלילים והברות, דרך האותיות והניקוד, ועד קריאת מילים, משפטים וסיפורים — בקצב של כל ילד וילדה.
 
-● 22 משחקים קצרים ומשמחים: מגדלור הצלילים, בלוני אותיות, זוגות של אותיות, מגנט הניקוד, רכבת ההברות, מאפיית המילים, בלש הסיפורים ועוד
-● סדנת כתיבה: כותבים את האותיות עם האצבע, לפי סדר הקווים והכיוון הנכון
-● מעל 340 מילים עם תמונות, 72 משפטים ו־26 סיפורים — וכמעט אין חזרות, כי האפליקציה זוכרת מה כבר נלמד
-● מתאימה את עצמה: בדיקת פתיחה משחקית, תרגול חכם של מה שצריך, וחזרות כדי שהידע יישאר — וכל העולמות פתוחים
-● הילד/ה משחקים לבד, בשקט: בלחיצה על 👂 בּוּץ מסביר, ובלחיצה על 🔊 שומעים את הצליל או המילה
+● 8 משחקים: קפיצת הברות, בלוני אותיות, זוגות של אותיות, כותבים אותיות, האות החסרה, מאפיית המילים, בלש הסיפורים ופאזל הסיפור
+● כותבים את האותיות עם האצבע — קודם בדפוס ואחר כך בכתב יד, לפי סדר הקווים והכיוון הנכון
+● מעל 500 מילים עם תמונות, 72 משפטים ו־146 סיפורים, מסיפורים קצרים ועד סיפורים ארוכים לקוראים מתקדמים — וכמעט אין חזרות, כי האפליקציה זוכרת מה כבר נלמד
+● מתאימה את עצמה: בדיקת פתיחה משחקית, רמת קושי שעולה ויורדת לפי ההצלחה, ותרגול חכם של מה שצריך — וכל המשחקים פתוחים
+● הילד/ה משחקים לבד, בשקט: ההוראות כתובות על המסך, ובלחיצה על 🔊 שומעים את הצליל או המילה
 ● פונה לבנים ולבנות בלשון המתאימה
 ● מחברות מדבקות חיות ומונפשות שמרוויחים במשחק — בלי לחץ ובלי להפסיד כלום
-● אזור הורים: התקדמות לפי תחומים, הגדרות נגישות, ניגודיות גבוהה, פחות תנועה ובחירת מה שכבר נלמד בבית הספר
+● אזור הורים: התקדמות לפי תחומים, קצב דיבור, גודל טקסט, ניגודיות גבוהה, פחות תנועה ופחות אפשרויות בכל שאלה
 
 בלי פרסומות, בלי רכישות, בלי חשבון ובלי איסוף מידע. הכול נשמר רק במכשיר ועובד גם בלי אינטרנט.
 

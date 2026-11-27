@@ -1,5 +1,5 @@
 /* Butz (בּוּץ, with shuruk) the owl: the guide character. Pure SVG so it scales and works offline; bobs gently unless motion is reduced. */
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
 import { useSettings } from './theme';
@@ -54,31 +54,5 @@ export function Butz({ size = 140, mood = 'happy' }: { size?: number; mood?: Moo
         <Path d="M78 186 l6 -12 l6 12 M110 186 l6 -12 l6 12" stroke="#FF9800" strokeWidth="6" strokeLinecap="round" fill="none" />
       </Svg>
     </Animated.View>
-  );
-}
-
-/** Lighthouse for the Sound Lighthouse game; the lamp lights up when the child answers. */
-export function Lighthouse({ size = 120, lit = false }: { size?: number; lit?: boolean }) {
-  return (
-    <Svg width={size * 0.8} height={size} viewBox="0 0 160 200">
-      {lit && <Path d="M80 40 L0 10 L0 70 Z M80 40 L160 10 L160 70 Z" fill="rgba(255,213,79,0.55)" />}
-      <Path d="M60 60 L100 60 L112 186 L48 186 Z" fill="#FFFFFF" stroke="#24304A" strokeWidth="5" />
-      <Path d="M57 90 L103 90 L106 115 L54 115 Z M51 140 L109 140 L111 165 L49 165 Z" fill="#F25C54" />
-      <Path d="M56 24 L104 24 L104 60 L56 60 Z" fill={lit ? '#FFD54F' : '#B0BEC5'} stroke="#24304A" strokeWidth="5" />
-      <Path d="M50 24 L80 4 L110 24 Z" fill="#F25C54" stroke="#24304A" strokeWidth="5" />
-      <Path d="M30 186 L130 186" stroke="#24304A" strokeWidth="6" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-/** Magic door for the Secret Password game. */
-export function Door({ size = 160, open = false, children }: { size?: number; open?: boolean; children?: ReactNode }) {
-  return (
-    <Svg width={size * 0.78} height={size} viewBox="0 0 156 200">
-      <Path d="M8 196 L8 70 Q8 8 78 8 Q148 8 148 70 L148 196 Z" fill={open ? '#2B2140' : '#8D5A3B'} stroke="#24304A" strokeWidth="6" />
-      {!open && <Path d="M24 190 L24 74 Q24 24 78 24 Q132 24 132 74 L132 190 Z" fill="#A0673F" />}
-      {!open && <Circle cx="118" cy="130" r="8" fill="#FFC928" stroke="#24304A" strokeWidth="3" />}
-      {children}
-    </Svg>
   );
 }

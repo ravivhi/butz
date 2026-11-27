@@ -796,7 +796,7 @@ without streak pressure. Not: minutes in app or games completed.
 
 - Everything lives in the project folder: `npm ci` installs dependencies into `node_modules/` inside it (no links to
   other folders). The folder can be zipped (without `node_modules/`, `dist/`, `test-results/`) and built anywhere.
-- `app.json`: `android.package` / `ios.bundleIdentifier` = `com.butz.hebrewreading` (change it **before the first
+- `app.json`: `android.package` / `ios.bundleIdentifier` = `com.raviv.butz` (change it **before the first
   upload** if the publishing account wants its own id; it can never change afterwards), `android.versionCode` (+1 for
   every upload), `version`, no microphone permission (`RECORD_AUDIO` blocked).
 - Build: the Android app is a Trusted Web Activity (`android-twa/`, Bubblewrap) around the offline web version at

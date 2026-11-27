@@ -15,7 +15,7 @@ import { initSpeech, stopSpeech } from './src/services/speech';
 import { initAudio } from './src/services/sfx';
 import { Home, Setup } from './src/screens/Home';
 import { Placement, Play } from './src/screens/Play';
-import { MapScreen, WorldScreen } from './src/screens/Map';
+import { MapScreen } from './src/screens/Map';
 import { NotebookView, Notebooks, Shop } from './src/screens/Stickers';
 import { Gate, Parent } from './src/screens/Parent';
 
@@ -31,8 +31,7 @@ function Router() {
     case 'setup': return <Setup />;
     case 'home': return <Home />;
     case 'map': return <MapScreen />;
-    case 'world': return <WorldScreen world={r.world} />;
-    case 'play': return <Play key={`${depth}:${r.source}:${r.game ?? ''}`} source={r.source} game={r.game} />;
+    case 'play': return <Play key={`${depth}:${r.game}`} game={r.game} />;
     case 'placement': return <Placement />;
     case 'notebooks': return <Notebooks />;
     case 'notebook': return <NotebookView key={r.id} id={r.id} open={r.open} />;
@@ -43,7 +42,7 @@ function Router() {
 }
 
 export default function App() {
-  const [fonts, fontError] = useFonts({ NotoSansHebrew_500Medium, NotoSansHebrew_700Bold, NotoSerifHebrew_700Bold, Rubik_500Medium, Rubik_700Bold, Rubik_800ExtraBold });
+  const [fonts, fontError] = useFonts({ NotoSansHebrew_500Medium, NotoSansHebrew_700Bold, NotoSerifHebrew_700Bold, Rubik_500Medium, Rubik_700Bold, Rubik_800ExtraBold, DanaYad: require('./assets/fonts/DanaYadAlefAlefAlef-Normal.otf') });
   const [ready, setReady] = useState(false);
   useEffect(() => {
     initAudio();

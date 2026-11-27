@@ -1,72 +1,74 @@
-/* Play: a Continue session or free play; session end with the surprise envelope; the playful starting check. */
+/* Play: one game chosen on the map; the end screen with the surprise envelope; the playful starting check. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { GameHost, type SessionResult } from '../games/GameHost';
 import { Mechanic, type HostItem } from '../games/mechanics';
 import { DEFAULT_SPINE, GAME, type GameId } from '../engine/curriculum';
-import { openPlaySpec, planSession, playedStoryToday } from '../engine/planner';
+import { openPlaySpec } from '../engine/planner';
 import { answerPlacement, currentItem, startPlacement, type PlacementState } from '../engine/placement';
 import { envelopePrice, STARS } from '../engine/economy';
 import { makeRng } from '../engine/rng';
 import { BUTZ, SAY, g } from '../engine/phrases';
-import { back, go, home, knownFor, replace, updateProfile, useProfile } from '../state/store';
+import { back, home, knownFor, replace, updateProfile, useProfile } from '../state/store';
 import { Big, Burst, Dots, HelpButton, ListenButton, Screen, TopBar, Txt } from '../ui/kit';
 import { Butz } from '../ui/Butz';
 import { ROW, useLayout, usePalette } from '../ui/theme';
 import { RATE, say, stopSpeech } from '../services/speech';
 import { sfx } from '../services/sfx';
 
-export function Play({ source, game }: { source: 'session' | 'free'; game?: string }) {
+export function Play({ game }: { game: string }) {
   const p = useProfile()!;
   const [result, setResult] = useState<SessionResult | null>(null);
   const [run, setRun] = useState(0);
   const plan = useMemo(() => {
-    const rng = makeRng();
-    const known = knownFor(p);
     const spine = p.spine?.length ? p.spine : DEFAULT_SPINE;
-    if (source === 'free' && game) return [openPlaySpec(game as GameId, p.learner, known, rng, spine)];
-    return planSession({ learner: p.learner, known, now: Date.now(), minutes: p.settings.minutes, storyToday: playedStoryToday(p.learner, Date.now()), rng, spine });
+    return GAME[game] ? [openPlaySpec(game as GameId, p.learner, knownFor(p), makeRng(), spine)] : [];
   }, [run]); // eslint-disable-line react-hooks/exhaustive-deps
   if (Platform.OS === 'web') (globalThis as any).__butzPlan = plan;
   useEffect(() => { if (!plan.length) back(); }, [plan]);
-  if (result) return <SessionEnd result={result} source={source} again={() => { setResult(null); setRun((r) => r + 1); }} />;
+  if (result) return <SessionEnd result={result} again={() => { setResult(null); setRun((r) => r + 1); }} />;
   if (!plan.length) return null;
   return <GameHost key={run} plan={plan} onFinish={setResult} onExit={() => { stopSpeech(); back(); }} />;
 }
 
-function SessionEnd({ result, source, again }: { result: SessionResult; source: 'session' | 'free'; again: () => void }) {
+function SessionEnd({ result, again }: { result: SessionResult; again: () => void }) {
   const p = useProfile()!;
   const pal = usePalette();
   const { s, short } = useLayout();
   const [burst] = useState(1);
   const said = useRef(false);
   const price = envelopePrice(p.wallet);
+  const won = result.stars > 0;
   if (!said.current) {
     said.current = true;
-    sfx('win');
-    if (p.settings.autoSpeak) say(g(result.early ? SAY.sessionEndEarly : SAY.sessionEnd, p.gender), { rate: RATE.talk });
+    sfx(won ? 'win' : 'tap');
+    if (p.settings.autoSpeak) say(g(!won ? SAY.noPrize : result.early ? SAY.sessionEndEarly : SAY.sessionEnd, p.gender), { rate: RATE.talk });
   }
   return (
     <Screen testID="session-end">
       <TopBar onClose={home} closeEmoji="🏠" stars={p.wallet.stars} />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-evenly', padding: s(14) }}>
         <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(12) }}>
-          <Butz size={Math.min(s(200), short * 0.4)} mood="cheer" />
+          <Butz size={Math.min(s(200), short * 0.4)} mood={won ? 'cheer' : 'happy'} />
           <HelpButton text={g(SAY.sessionEndHelp, p.gender)} />
         </View>
-        <Txt size={44} font="uiHeavy">{`+${result.stars} ⭐`}</Txt>
+        {won ? <Txt size={44} font="uiHeavy">{`+${result.stars} ⭐${result.golden ? ' 🏆' : ''}`}</Txt>
+          : <View testID="no-prize" style={{ maxWidth: s(560), paddingHorizontal: s(12) }}><Txt size={26} font="read">{g(SAY.noPrize, p.gender)}</Txt></View>}
         <View style={{ flexDirection: ROW, gap: s(14), flexWrap: 'wrap', justifyContent: 'center' }}>
+          {p.wallet.golden ? (
+            <Big label="מַעֲטָפַת זָהָב!" emoji="🏆" color={pal.gold} glow onPress={() => replace({ name: 'notebook', id: p.wallet.active })} testID="open-golden" />
+          ) : null}
           {p.wallet.stars >= price ? (
             <Big label="הַפְתָּעָה!" emoji="✉️" color={pal.purple} glow onPress={() => replace({ name: 'notebook', id: p.wallet.active, open: true })} testID="open-surprise" />
           ) : null}
           <Big label="עוֹד!" emoji="▶️" color={pal.green} onPress={again} testID="again" />
           <Big emoji="🏠" color={pal.blue} onPress={home} testID="home-btn" />
         </View>
-        {source === 'session' && p.wallet.stars < price ? (
+        {p.wallet.stars < price ? (
           <Txt size={20} font="uiMed" color={pal.soft}>{`✉️ ${p.wallet.stars}/${price} ⭐`}</Txt>
         ) : null}
       </View>
-      <Burst run={burst} emojis={['⭐', '🎉', '✨', '🏆']} />
+      {won ? <Burst run={burst} emojis={['⭐', '🎉', '✨', '🏆']} /> : null}
     </Screen>
   );
 }
@@ -124,9 +126,8 @@ export function Placement() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-evenly' }}>
           <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(12) }}>
             <Butz size={Math.min(s(200), short * 0.42)} mood="talk" />
-            <HelpButton text={g(SAY.placementHelp, p.gender)} attention size={64} />
           </View>
-          <Txt size={30} font="read">{`שָׁלוֹם! אֲנִי ${BUTZ} 🦉`}</Txt>
+          <View testID="placement-text" style={{ maxWidth: s(640), paddingHorizontal: s(12) }}><Txt size={24} font="read">{g(SAY.placementHelp, p.gender)}</Txt></View>
           <Big label={p.gender === 'girl' ? 'בּוֹאִי נְשַׂחֵק!' : 'בּוֹא נְשַׂחֵק!'} emoji="▶️" size="xl" color={pal.green} onPress={begin} testID="placement-start" glow />
         </View>
       </Screen>
@@ -138,7 +139,7 @@ export function Placement() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-evenly' }}>
           <Butz size={Math.min(s(200), short * 0.42)} mood="cheer" />
           <Txt size={44} font="uiHeavy">{`+${STARS.placement} ⭐`}</Txt>
-          <Big label="יוֹצְאִים לַהַרְפַּתְקָה!" emoji="▶️" size="l" color={pal.green} onPress={() => replace({ name: 'play', source: 'session' })} testID="placement-continue" />
+          <Big label="יוֹצְאִים לַהַרְפַּתְקָה!" emoji="▶️" size="l" color={pal.green} onPress={() => replace({ name: 'map' })} testID="placement-continue" />
         </View>
         <Burst run={1} />
       </Screen>
@@ -153,9 +154,9 @@ export function Placement() {
       <View style={{ flexDirection: ROW, alignItems: 'center', justifyContent: 'center', gap: s(8) }}>
         <Text style={{ fontSize: s(26) }}>{GAME[item.game].icon}</Text>
         <Txt size={18} font="uiMed" color={pal.soft}>{GAME[item.game].name}</Txt>
-        <HelpButton text={GAME[item.game].mission[p.gender === 'girl' ? 1 : 0]} size={50} testID="help-mission" />
         {item.say?.length || item.nameOptions ? <ListenButton key={'listen-' + st.current!.total} onPress={() => speakItem(item)} size={50} attention={!auto} /> : null}
       </View>
+      <View testID="instruction" style={{ paddingHorizontal: s(14) }}><Txt size={18} font="read" color={pal.soft} lines={3}>{GAME[item.game].mission[p.gender === 'girl' ? 1 : 0]}</Txt></View>
       <View style={{ flex: 1, padding: s(10) }}>
         <Mechanic key={item.id + ':' + st.current!.total} item={item} help={0} easy={false} highlight={null} known={knownFor(p)} auto={auto}
           onRight={async () => { await answer(true); }} onWrong={() => { answer(false); }} onNext={() => answer(true)}
@@ -164,5 +165,3 @@ export function Placement() {
     </Screen>
   );
 }
-
-export const startSession = () => go({ name: 'play', source: 'session' });

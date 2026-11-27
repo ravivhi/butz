@@ -1,120 +1,83 @@
-/* Curriculum data (SPEC §5-§6, §9): skills, worlds, the game registry and the introduction spine. Pure data. */
+/* Curriculum data (SPEC §5-§6, §9): skills, the game registry and map order, and the introduction spine. Pure data. */
 import { LETTER, LETTERS, VOWELS, nfc } from './hebrew.ts';
 import { g, type G2 } from './phrases.ts';
 
-export type WorldId = 'forest' | 'island' | 'writing' | 'workshop' | 'train' | 'mountain' | 'museum' | 'theatre' | 'kingdom' | 'storytime';
 export type GameId =
-  | 'soundSafari' | 'syllableHop' | 'robotMixer'
-  | 'soundLighthouse' | 'letterDetective' | 'balloonPop' | 'memoryMatch'
+  | 'storyDetective' | 'storyPuzzle'
+  | 'syllableHop'
+  | 'balloonPop' | 'memoryMatch'
   | 'letterTrace'
-  | 'nikudMagnet' | 'syllableDJ' | 'secretPassword'
-  | 'syllableTrain' | 'wordBakery' | 'wordExplorer' | 'missingLetter'
-  | 'finalTransformer' | 'wordCollector'
-  | 'echoReader' | 'phraseTrain'
-  | 'storyPuzzle' | 'storyDetective' | 'storyTime';
+  | 'wordBakery' | 'missingLetter';
 
-export type Strand = 'sounds' | 'letters' | 'nikud' | 'blending' | 'sight' | 'fluency' | 'listen' | 'read';
+export type Strand = 'sounds' | 'letters' | 'nikud' | 'blending' | 'read';
 
 export interface SkillDef { id: string; strand: Strand; label: string; /* parent-facing, Hebrew */ }
 
 const S = (id: string, strand: Strand, label: string): SkillDef => ({ id, strand, label });
 export const SKILLS: SkillDef[] = [
-  S('PA.first', 'sounds', 'צְלִיל פּוֹתֵחַ'),
   S('PA.count', 'sounds', 'סְפִירַת הֲבָרוֹת'),
-  S('PA.blend', 'sounds', 'חִבּוּר הֲבָרוֹת'),
   ...LETTERS.map((l) => S('L.' + l.id, 'letters', l.char)),
   S('WRITE', 'letters', 'כְּתִיבַת אוֹתִיּוֹת'),
   ...VOWELS.map((v) => S('V.' + v.id, 'nikud', v.name)),
-  S('V.shva', 'nikud', nfc('שְׁוָא')),
-  S('V.hataf', 'nikud', nfc('חֲטָפִים')),
-  S('CV', 'nikud', nfc('קְרִיאַת צֵרוּפִים')),
-  S('X.quiet', 'blending', nfc('אוֹתִיּוֹת שְׁקֵטוֹת')),
-  S('X.genuva', 'blending', nfc('פַּתָּח גְּנוּבָה')),
-  S('W1', 'blending', nfc('מִלִּים שֶׁל הֲבָרָה אַחַת')),
-  S('W2', 'blending', nfc('מִלִּים שֶׁל שְׁתֵּי הֲבָרוֹת')),
-  S('W3', 'blending', nfc('מִלִּים אֲרֻכּוֹת')),
-  S('FIN', 'blending', nfc('אוֹתִיּוֹת סוֹפִיּוֹת בְּמִלִּים')),
-  S('SIGHT', 'sight', nfc('מִלִּים שְׁכִיחוֹת')),
-  S('FLU.phrase', 'fluency', nfc('קְרִיאָה בְּצֵרוּפֵי מִלִּים')),
-  S('FLU.sentence', 'fluency', nfc('קְרִיאַת מִשְׁפָּטִים')),
-  S('COMP.listen', 'listen', nfc('הֲבָנַת הַנִּשְׁמָע')),
-  S('COMP.seq', 'read', nfc('סֵדֶר אֵרוּעִים')),
-  S('COMP.read', 'read', nfc('הֲבָנַת הַנִּקְרָא')),
+  S('V.shva', 'nikud', 'שְׁוָא'),
+  S('V.hataf', 'nikud', 'חֲטָפִים'),
+  S('X.quiet', 'blending', 'אוֹתִיּוֹת שְׁקֵטוֹת'),
+  S('X.genuva', 'blending', 'פַּתָּח גְּנוּבָה'),
+  S('W2', 'blending', 'מִלִּים שֶׁל שְׁתֵּי הֲבָרוֹת'),
+  S('W3', 'blending', 'מִלִּים אֲרֻכּוֹת'),
+  S('COMP.seq', 'read', 'סֵדֶר אֵרוּעִים'),
+  S('COMP.read', 'read', 'הֲבָנַת הַנִּקְרָא'),
 ].map((s) => ({ ...s, label: nfc(s.label) }));
 export const SKILL: Record<string, SkillDef> = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
 
 export const STRANDS: { id: Strand; label: string }[] = [
   { id: 'sounds', label: 'צְלִילִים וַהֲבָרוֹת' },
   { id: 'letters', label: 'אוֹתִיּוֹת וּצְלִילִים' },
-  { id: 'nikud', label: 'נִקּוּד וְצֵרוּפִים' },
+  { id: 'nikud', label: 'נִקּוּד' },
   { id: 'blending', label: 'קְרִיאַת מִלִּים' },
-  { id: 'sight', label: 'מִלִּים שְׁכִיחוֹת' },
-  { id: 'fluency', label: 'שֶׁטֶף קְרִיאָה' },
-  { id: 'listen', label: 'הֲבָנַת הַנִּשְׁמָע' },
   { id: 'read', label: 'הֲבָנַת הַנִּקְרָא' },
 ].map((s) => ({ ...s, id: s.id as Strand, label: nfc(s.label) }));
 
-export interface WorldDef { id: WorldId; name: string; emoji: string; color: string; games: GameId[] }
-export const WORLDS: WorldDef[] = [
-  { id: 'forest', name: 'יַעַר הַצְּלִילִים', emoji: '🌳', color: '#43A047', games: ['soundSafari', 'syllableHop', 'robotMixer'] },
-  { id: 'island', name: 'אִי הָאוֹתִיּוֹת', emoji: '🏝️', color: '#00ACC1', games: ['soundLighthouse', 'letterDetective', 'balloonPop', 'memoryMatch'] },
-  { id: 'writing', name: 'סַדְנַת הַכְּתִיבָה', emoji: '✍️', color: '#5C6BC0', games: ['letterTrace'] },
-  { id: 'workshop', name: 'סַדְנַת הַנִּקּוּד', emoji: '🛠️', color: '#8E24AA', games: ['nikudMagnet', 'syllableDJ', 'secretPassword'] },
-  { id: 'train', name: 'רַכֶּבֶת הַמִּלִּים', emoji: '🚂', color: '#E53935', games: ['syllableTrain', 'wordBakery', 'wordExplorer', 'missingLetter'] },
-  { id: 'mountain', name: 'הַר הַמִּלִּים', emoji: '⛰️', color: '#6D4C41', games: ['finalTransformer'] },
-  { id: 'museum', name: 'מוּזֵאוֹן הַמִּלִּים', emoji: '🏛️', color: '#3949AB', games: ['wordCollector'] },
-  { id: 'theatre', name: 'תֵּאַטְרוֹן הַסִּפּוּרִים', emoji: '🎭', color: '#D81B60', games: ['echoReader', 'phraseTrain'] },
-  { id: 'kingdom', name: 'מַמְלֶכֶת הַסִּפּוּרִים', emoji: '🏰', color: '#F4511E', games: ['storyPuzzle', 'storyDetective'] },
-].map((w) => ({ ...w, id: w.id as WorldId, games: w.games as GameId[], name: nfc(w.name) }));
-export const WORLD: Record<string, WorldDef> = Object.fromEntries(WORLDS.map((w) => [w.id, w]));
-
-export type Mechanic = 'choose' | 'findTap' | 'build' | 'count' | 'sequence' | 'readAlong' | 'story' | 'trace' | 'memory';
+export type Mechanic = 'findTap' | 'build' | 'count' | 'sequence' | 'story' | 'trace' | 'memory';
 
 export interface GameDef {
   id: GameId;
-  world: WorldId;
-  name: string;        // spoken + shown (pointed)
+  color: string;       // its place on the map
+  name: string;        // shown (pointed)
   icon: string;
   mechanic: Mechanic;
   skills: string[];    // exact ids or prefix patterns ending with '*'
-  mission: readonly [string, string]; // spoken instruction (Butz), [boy, girl]; played only when the child taps 👂
+  mission: readonly [string, string]; // written instruction shown in the game, [boy, girl] (v1.3: printed, never spoken)
   items: number;       // items per activity
+  pick?: boolean;      // free play starts with a letter picker (the child chooses the letters)
 }
 
-const G = (id: GameId, world: WorldId, name: string, icon: string, mechanic: Mechanic, skills: string[], mission: G2, items = 5): GameDef =>
-  ({ id, world, name: nfc(name), icon, mechanic, skills, mission: [g(mission, 'boy'), g(mission, 'girl')], items });
+const G = (id: GameId, color: string, name: string, icon: string, mechanic: Mechanic, skills: string[], mission: G2, items = 5, pick = false): GameDef =>
+  ({ id, color, name: nfc(name), icon, mechanic, skills, mission: [g(mission, 'boy'), g(mission, 'girl')], items, pick });
 
+/** The child reads every story alone. The Story Detective then asks questions; the Story Puzzle puts the events in order. */
 export const GAMES: GameDef[] = [
-  G('soundSafari', 'forest', 'סָפָארִי צְלִילִים', '🦁', 'choose', ['PA.first'], ['גַּע בָּרַמְקוֹל וְהַקְשֵׁב לַמִּלָּה. אַחַר כָּךְ מְצָא תְּמוּנָה שֶׁמַּתְחִילָה בְּאוֹתוֹ צְלִיל!', 'גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי לַמִּלָּה. אַחַר כָּךְ מִצְאִי תְּמוּנָה שֶׁמַּתְחִילָה בְּאוֹתוֹ צְלִיל!']),
-  G('syllableHop', 'forest', 'קְפִיצַת הֲבָרוֹת', '🐸', 'count', ['PA.count'], ['גַּע בְּאֶבֶן אַחַת לְכָל הֲבָרָה בַּמִּלָּה, וְהַצְּפַרְדֵּעַ תִּקְפֹּץ! הָרַמְקוֹל אוֹמֵר אֶת הַמִּלָּה.', 'גְּעִי בְּאֶבֶן אַחַת לְכָל הֲבָרָה בַּמִּלָּה, וְהַצְּפַרְדֵּעַ תִּקְפֹּץ! הָרַמְקוֹל אוֹמֵר אֶת הַמִּלָּה.']),
-  G('robotMixer', 'forest', 'הָרוֹבּוֹט מְחַבֵּר', '🤖', 'choose', ['PA.blend'], ['גַּע בָּרַמְקוֹל, וְהָרוֹבּוֹט יַגִּיד מִלָּה בַּחֲתִיכוֹת. אֵיזוֹ מִלָּה הוּא אָמַר?', 'גְּעִי בָּרַמְקוֹל, וְהָרוֹבּוֹט יַגִּיד מִלָּה בַּחֲתִיכוֹת. אֵיזוֹ מִלָּה הוּא אָמַר?']),
-  G('soundLighthouse', 'island', 'מִגְדַּלּוֹר הַצְּלִילִים', '💡', 'choose', ['L.*'], ['גַּע בָּרַמְקוֹל וְהַקְשֵׁב לַצְּלִיל. אַחַר כָּךְ גַּע בָּאוֹת שֶׁעוֹשָׂה אֶת הַצְּלִיל הַזֶּה!', 'גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי לַצְּלִיל. אַחַר כָּךְ גְּעִי בָּאוֹת שֶׁעוֹשָׂה אֶת הַצְּלִיל הַזֶּה!']),
-  G('letterDetective', 'island', 'בַּלַּשׁ הָאוֹתִיּוֹת', '🔍', 'findTap', ['L.*'], ['מְצָא אֶת כָּל הָאוֹתִיּוֹת כְּמוֹ הָאוֹת שֶׁלְּמַעְלָה!', 'מִצְאִי אֶת כָּל הָאוֹתִיּוֹת כְּמוֹ הָאוֹת שֶׁלְּמַעְלָה!'], 3),
-  G('balloonPop', 'island', 'בָּלוֹנֵי אוֹתִיּוֹת', '🎈', 'findTap', ['L.*'], ['פּוֹצֵץ רַק אֶת הַבָּלוֹנִים שֶׁל הָאוֹת שֶׁלְּמַעְלָה!', 'פּוֹצְצִי רַק אֶת הַבָּלוֹנִים שֶׁל הָאוֹת שֶׁלְּמַעְלָה!'], 2),
-  G('memoryMatch', 'island', 'זוּגוֹת שֶׁל אוֹתִיּוֹת', '🃏', 'memory', ['L.*'], ['גַּע בִּשְׁנֵי קְלָפִים, וּמְצָא אוֹת וּתְמוּנָה שֶׁמַּתְחִילָה בָּהּ!', 'גְּעִי בִּשְׁנֵי קְלָפִים, וּמִצְאִי אוֹת וּתְמוּנָה שֶׁמַּתְחִילָה בָּהּ!'], 2),
-  G('letterTrace', 'writing', 'כּוֹתְבִים אוֹתִיּוֹת', '✍️', 'trace', ['WRITE'], ['בּוֹא נִכְתֹּב אֶת הָאוֹת! מַתְחִילִים בַּנְּקֻדָּה הָאֲדֻמָּה, וְהוֹלְכִים עִם הָאֶצְבַּע לְאֹרֶךְ הַקַּו.', 'בּוֹאִי נִכְתֹּב אֶת הָאוֹת! מַתְחִילִים בַּנְּקֻדָּה הָאֲדֻמָּה, וְהוֹלְכִים עִם הָאֶצְבַּע לְאֹרֶךְ הַקַּו.'], 3),
-  G('nikudMagnet', 'workshop', 'מַגְנֵט הַנִּקּוּד', '🧲', 'build', ['V.a', 'V.i', 'V.e', 'V.o', 'V.u'], ['גַּע בָּרַמְקוֹל וְהַקְשֵׁב, וְאָז הַדְבֵּק לָאוֹת אֶת הַנִּקּוּד הַנָּכוֹן!', 'גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי, וְאָז הַדְבִּיקִי לָאוֹת אֶת הַנִּקּוּד הַנָּכוֹן!']),
-  G('syllableDJ', 'workshop', 'דִּי־גֵ׳יי הֲבָרוֹת', '🎧', 'choose', ['CV', 'V.a', 'V.i', 'V.e', 'V.o', 'V.u'], ['גַּע בָּרַמְקוֹל וְהַקְשֵׁב לַצְּלִיל, וְאָז גַּע בַּכַּפְתּוֹר הַנָּכוֹן!', 'גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי לַצְּלִיל, וְאָז גְּעִי בַּכַּפְתּוֹר הַנָּכוֹן!']),
-  G('secretPassword', 'workshop', 'הַסִּיסְמָה הַסּוֹדִית', '🚪', 'choose', ['CV', 'V.a', 'V.i', 'V.e', 'V.o', 'V.u'], ['קְרָא אֶת הַסִּיסְמָה שֶׁעַל הַדֶּלֶת, וּבְחַר אֶת הַמַּפְתֵּחַ שֶׁאוֹמֵר אוֹתָהּ!', 'קִרְאִי אֶת הַסִּיסְמָה שֶׁעַל הַדֶּלֶת, וּבַחֲרִי אֶת הַמַּפְתֵּחַ שֶׁאוֹמֵר אוֹתָהּ!']),
-  G('syllableTrain', 'train', 'רַכֶּבֶת הַהֲבָרוֹת', '🚂', 'choose', ['W1', 'W2', 'W3', 'X.quiet', 'V.shva'], ['קְרָא אֶת הַקְּרוֹנוֹת, וּבְחַר מָה הָרַכֶּבֶת מְבִיאָה!', 'קִרְאִי אֶת הַקְּרוֹנוֹת, וּבַחֲרִי מָה הָרַכֶּבֶת מְבִיאָה!']),
-  G('wordBakery', 'train', 'מַאֲפִיַּת הַמִּלִּים', '🧁', 'build', ['W2', 'W3'], ['בּוּץ הִזְמִין עוּגַת מִלָּה. סַדֵּר אֶת הַהֲבָרוֹת לְפִי הַסֵּדֶר!', 'בּוּץ הִזְמִין עוּגַת מִלָּה. סַדְּרִי אֶת הַהֲבָרוֹת לְפִי הַסֵּדֶר!'], 4),
-  G('wordExplorer', 'train', 'מְגַלֶּה הַמִּלִּים', '🧭', 'choose', ['W1', 'W2', 'W3', 'X.quiet', 'V.shva'], ['מָצָאנוּ מִלָּה חֲדָשָׁה בַּמַּפָּה! קְרָא אוֹתָהּ, וּבְחַר אֶת הַתְּמוּנָה.', 'מָצָאנוּ מִלָּה חֲדָשָׁה בַּמַּפָּה! קִרְאִי אוֹתָהּ, וּבַחֲרִי אֶת הַתְּמוּנָה.']),
-  G('missingLetter', 'train', 'הָאוֹת הַחֲסֵרָה', '❓', 'build', ['L.*'], ['אֵיזוֹ אוֹת חֲסֵרָה בִּתְחִלַּת הַמִּלָּה? גַּע בָּהּ!', 'אֵיזוֹ אוֹת חֲסֵרָה בִּתְחִלַּת הַמִּלָּה? גְּעִי בָּהּ!'], 4),
-  G('finalTransformer', 'mountain', 'הָרוֹבּוֹט הַמְּשַׁנֶּה', '🦾', 'build', ['FIN', 'L.finalKhaf', 'L.finalMem', 'L.finalNun', 'L.finalFe', 'L.finalTsadi'], 'בְּסוֹף מִלָּה, יֵשׁ אוֹתִיּוֹת שֶׁמִּשְׁתַּנּוֹת! אֵיזוֹ אוֹת חֲסֵרָה?'),
-  G('wordCollector', 'museum', 'אֹסֶף הַמִּלִּים', '🏛️', 'choose', ['SIGHT'], ['גַּע בָּרַמְקוֹל וְהַקְשֵׁב לַמִּלָּה, וְאָז מְצָא אוֹתָהּ!', 'גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי לַמִּלָּה, וְאָז מִצְאִי אוֹתָהּ!']),
-  G('echoReader', 'theatre', 'קוֹרֵא הַהֵד', '🦜', 'readAlong', ['FLU.sentence'], ['קְרָא אֶת הַמִּשְׁפָּט, וּבְחַר אֶת הַתְּמוּנָה. אַחַר כָּךְ בּוּץ יִקְרָא אוֹתוֹ, וְתִקְרָא שׁוּב כְּמוֹהוּ!', 'קִרְאִי אֶת הַמִּשְׁפָּט, וּבַחֲרִי אֶת הַתְּמוּנָה. אַחַר כָּךְ בּוּץ יִקְרָא אוֹתוֹ, וְתִקְרְאִי שׁוּב כְּמוֹהוּ!'], 3),
-  G('phraseTrain', 'theatre', 'רַכֶּבֶת הַמִּשְׁפָּטִים', '🚃', 'readAlong', ['FLU.phrase'], ['גַּע בְּכָל קָרוֹן כְּשֶׁאַתָּה קוֹרֵא אוֹתוֹ, וְאָז בְּחַר אֶת הַתְּמוּנָה!', 'גְּעִי בְּכָל קָרוֹן כְּשֶׁאַתְּ קוֹרֵאת אוֹתוֹ, וְאָז בַּחֲרִי אֶת הַתְּמוּנָה!'], 3),
-  G('storyPuzzle', 'kingdom', 'פָּאזֶל הַסִּפּוּר', '🧩', 'sequence', ['COMP.seq'], ['גַּע בָּרַמְקוֹל וְהַקְשֵׁב לַסִּפּוּר, וְאָז סַדֵּר אֶת הַתְּמוּנוֹת לְפִי הַסֵּדֶר!', 'גְּעִי בָּרַמְקוֹל וְהַקְשִׁיבִי לַסִּפּוּר, וְאָז סַדְּרִי אֶת הַתְּמוּנוֹת לְפִי הַסֵּדֶר!'], 1),
-  G('storyDetective', 'kingdom', 'בַּלַּשׁ הַסִּפּוּרִים', '🕵️', 'story', ['COMP.read'], ['קְרָא אֶת הַסִּפּוּר, וַעֲנֵה עַל שְׁאֵלוֹת שֶׁל בַּלָּשִׁים!', 'קִרְאִי אֶת הַסִּפּוּר, וַעֲנִי עַל שְׁאֵלוֹת שֶׁל בַּלָּשִׁים!'], 1),
-  G('storyTime', 'storytime', 'שְׁעַת סִפּוּר', '📚', 'story', ['COMP.listen'], ['גַּע בָּרַמְקוֹל כְּדֵי לִשְׁמֹעַ כָּל עַמּוּד, וְאַחַר כָּךְ עֲנֵה עַל הַשְּׁאֵלוֹת!', 'גְּעִי בָּרַמְקוֹל כְּדֵי לִשְׁמֹעַ כָּל עַמּוּד, וְאַחַר כָּךְ עֲנִי עַל הַשְּׁאֵלוֹת!'], 1),
+  G('storyDetective', '#FFCA28', 'בַּלַּשׁ הַסִּפּוּרִים', '🕵️', 'story', ['COMP.read'], ['קְרָא אֶת הַסִּפּוּר לְבַד, וַעֲנֵה עַל שְׁאֵלוֹת שֶׁל בַּלָּשִׁים: מִי? מָה? כַּמָּה? לָמָּה? בְּכָל שְׁאֵלָה אֶפְשָׁר לַחֲזֹר לַסִּפּוּר 📖.', 'קִרְאִי אֶת הַסִּפּוּר לְבַד, וַעֲנִי עַל שְׁאֵלוֹת שֶׁל בַּלָּשִׁים: מִי? מָה? כַּמָּה? לָמָּה? בְּכָל שְׁאֵלָה אֶפְשָׁר לַחֲזֹר לַסִּפּוּר 📖.'], 1),
+  G('storyPuzzle', '#FFB300', 'פָּאזֶל הַסִּפּוּר', '🧩', 'sequence', ['COMP.seq'], ['קְרָא אֶת הַסִּפּוּר לְבַד. אַחַר כָּךְ סַדֵּר אֶת הַמִּשְׁפָּטִים לְפִי מָה שֶׁקָּרָה קֹדֶם. אֶפְשָׁר לַחֲזֹר לַסִּפּוּר 📖.', 'קִרְאִי אֶת הַסִּפּוּר לְבַד. אַחַר כָּךְ סַדְּרִי אֶת הַמִּשְׁפָּטִים לְפִי מָה שֶׁקָּרָה קֹדֶם. אֶפְשָׁר לַחֲזֹר לַסִּפּוּר 📖.'], 1),
+  G('syllableHop', '#43A047', 'קְפִיצַת הֲבָרוֹת', '🐸', 'count', ['PA.count'], ['כַּמָּה הֲבָרוֹת יֵשׁ בַּמִּלָּה שֶׁל הַתְּמוּנָה? אֶפְשָׁר לִשְׁמֹעַ אוֹתָהּ 🔊. הוֹסֵף אֶבֶן 🪨 לְכָל הֲבָרָה, וּלְחַץ עַל הַצְּפַרְדֵּעַ 🐸.', 'כַּמָּה הֲבָרוֹת יֵשׁ בַּמִּלָּה שֶׁל הַתְּמוּנָה? אֶפְשָׁר לִשְׁמֹעַ אוֹתָהּ 🔊. הוֹסִיפִי אֶבֶן 🪨 לְכָל הֲבָרָה, וְלַחֲצִי עַל הַצְּפַרְדֵּעַ 🐸.']),
+  G('balloonPop', '#8E24AA', 'בָּלוֹנֵי אוֹתִיּוֹת', '🎈', 'findTap', ['L.*'], ['הָאוֹת לְמַעְלָה כְּתוּבָה בִּדְפוּס. פּוֹצֵץ אֶת כָּל הַבָּלוֹנִים שֶׁעֲלֵיהֶם הִיא כְּתוּבָה בִּכְתַב יָד ✍️.', 'הָאוֹת לְמַעְלָה כְּתוּבָה בִּדְפוּס. פּוֹצְצִי אֶת כָּל הַבָּלוֹנִים שֶׁעֲלֵיהֶם הִיא כְּתוּבָה בִּכְתַב יָד ✍️.'], 3, true),
+  G('memoryMatch', '#00ACC1', 'זוּגוֹת שֶׁל אוֹתִיּוֹת', '🃏', 'memory', ['L.*'], ['הָפֹךְ שְׁנֵי קְלָפִים. מְצָא זוּג: אוֹת בִּכְתַב יָד ✍️ וּתְמוּנָה שֶׁמַּתְחִילָה בָּהּ.', 'הִפְכִי שְׁנֵי קְלָפִים. מִצְאִי זוּג: אוֹת בִּכְתַב יָד ✍️ וּתְמוּנָה שֶׁמַּתְחִילָה בָּהּ.'], 2),
+  G('letterTrace', '#5C6BC0', 'כּוֹתְבִים אוֹתִיּוֹת', '✍️', 'trace', ['WRITE'], ['כְּתֹב אֶת הָאוֹת עִם הָאֶצְבַּע: מַתְחִילִים בַּנְּקֻדָּה הָאֲדֻמָּה וְהוֹלְכִים לְאֹרֶךְ הַקַּו. קֹדֶם בִּדְפוּס, אַחַר כָּךְ בִּכְתַב יָד.', 'כִּתְבִי אֶת הָאוֹת עִם הָאֶצְבַּע: מַתְחִילִים בַּנְּקֻדָּה הָאֲדֻמָּה וְהוֹלְכִים לְאֹרֶךְ הַקַּו. קֹדֶם בִּדְפוּס, אַחַר כָּךְ בִּכְתַב יָד.'], 4, true),
+  G('wordBakery', '#F4511E', 'מַאֲפִיַּת הַמִּלִּים', '🧁', 'build', ['W2', 'W3', 'V.*', 'X.quiet', 'X.genuva'], ['בּוּץ הִזְמִין עוּגָה בְּצוּרַת מִלָּה! הִסְתַּכֵּל בַּתְּמוּנָה, וְסַדֵּר אֶת הַהֲבָרוֹת לְפִי הַסֵּדֶר.', 'בּוּץ הִזְמִין עוּגָה בְּצוּרַת מִלָּה! הִסְתַּכְּלִי בַּתְּמוּנָה, וְסַדְּרִי אֶת הַהֲבָרוֹת לְפִי הַסֵּדֶר.'], 4),
+  G('missingLetter', '#E53935', 'הָאוֹת הַחֲסֵרָה', '❓', 'build', ['L.*'], ['אֵילוּ אוֹתִיּוֹת חֲסֵרוֹת בַּמִּלָּה? הִסְתַּכֵּל בַּתְּמוּנָה, וּבְחַר אוֹת לְכָל רִבּוּעַ רֵיק.', 'אֵילוּ אוֹתִיּוֹת חֲסֵרוֹת בַּמִּלָּה? הִסְתַּכְּלִי בַּתְּמוּנָה, וּבַחֲרִי אוֹת לְכָל רִבּוּעַ רֵיק.'], 4),
 ];
 export const GAME: Record<string, GameDef> = Object.fromEntries(GAMES.map((g) => [g.id, g]));
+
+/** The map, in learning order: syllables, letters and their sounds, print and cursive, writing, words, then stories. */
+export const MAP_ORDER: GameId[] = ['syllableHop', 'memoryMatch', 'balloonPop', 'letterTrace', 'missingLetter', 'wordBakery', 'storyDetective', 'storyPuzzle'];
+/** The best games (reading whole stories): golden on the map, more stars and a golden envelope for a story understood. */
+export const GOLDEN_GAMES = new Set<GameId>(['storyDetective', 'storyPuzzle']);
 
 export const gameServes = (g: GameDef, skill: string): boolean =>
   g.skills.some((p) => (p.endsWith('*') ? skill.startsWith(p.slice(0, -1)) : p === skill));
 export const gamesFor = (skill: string): GameDef[] => GAMES.filter((g) => gameServes(g, skill));
 
-/** Introduction order (SPEC §5.1). Units only: higher skills (CV, W1…) become available automatically (gating.ts). */
+/** Introduction order (SPEC §5.1). Units only: higher skills (W2, W3…) become available automatically (gating.ts). */
 export const DEFAULT_SPINE: string[] = [
   'L.mem', 'L.lamed', 'L.dalet', 'L.gimel',
   'V.a',

@@ -30,19 +30,23 @@ for (const [tag, viewport] of [['tablet', { width: 1024, height: 768 }], ['phone
   await shot('03-placement-item');
   await page.evaluate((all) => { const s = window.__butz.getState(); const p = s.profiles[0]; p.school = all; p.learner.placementDone = true; p.wallet.stars = 40; p.settings.reducedMotion = true; p.wallet.stickers = { animals: ['animals:0', 'animals:4', 'animals:7', 'animals:13', 'animals:2'] }; window.__butz.go({ name: 'home' }); }, ALL);
   await shot('04-home');
-  await page.evaluate(() => { window.__butz.go({ name: 'play', source: 'free', game: 'wordBakery' }); });
+  await page.evaluate(() => { window.__butz.go({ name: 'play', game: 'wordBakery' }); });
   await shot('04b-mission-card');
   await page.evaluate(() => window.__butz.go({ name: 'home' }));
   await page.evaluate(() => window.__butz.go({ name: 'map' }));
   await shot('05-map');
-  await page.evaluate(() => window.__butz.go({ name: 'world', world: 'workshop' }));
-  await shot('06-world');
-  for (const g of ['letterTrace', 'balloonPop', 'memoryMatch', 'missingLetter', 'soundLighthouse', 'letterDetective', 'nikudMagnet', 'syllableDJ', 'secretPassword', 'syllableTrain', 'wordBakery', 'wordExplorer', 'finalTransformer', 'wordCollector', 'syllableHop', 'soundSafari', 'phraseTrain', 'echoReader', 'storyTime', 'storyDetective']) {
-    await page.evaluate((game) => { window.__butz.go({ name: 'home' }); window.__butz.go({ name: 'play', source: 'free', game }); }, g);
+  for (const [g, level] of [['letterTrace', 0], ['balloonPop', 0], ['balloonPop', 5], ['memoryMatch', 5], ['missingLetter', 1], ['missingLetter', 5], ['wordBakery', 5], ['syllableHop', 0], ['syllableHop', 5], ['storyDetective', 1], ['storyDetective', 5], ['storyPuzzle', 3]]) {
+    await page.evaluate(([game, lv]) => { const p = window.__butz.getState().profiles[0]; p.learner.levels = { [game]: lv || 1 }; window.__butz.go({ name: 'home' }); window.__butz.go({ name: 'play', game }); }, [g, level]);
     await page.waitForTimeout(900);
+    if (level === 0 && g !== 'syllableHop') await shot(`game-${g}-mission`);
     if (await page.getByTestId('go').isVisible().catch(() => false)) await page.getByTestId('go').click();
     if (await page.getByTestId('try').isVisible().catch(() => false)) await page.getByTestId('try').click();
-    await shot('game-' + g);
+    await shot(`game-${g}${level ? '-L' + level : ''}`);
+    if (g.startsWith('story')) {
+      await page.getByTestId('story-done').click();
+      await shot(`game-${g}-question`);
+      if (await page.getByTestId('story-open').isVisible().catch(() => false)) { await page.getByTestId('story-open').click(); await shot(`game-${g}-back-to-story`); }
+    }
   }
   await page.evaluate(() => { window.__butz.go({ name: 'home' }); window.__butz.go({ name: 'notebook', id: 'animals', open: true }); });
   await shot('07-notebook');

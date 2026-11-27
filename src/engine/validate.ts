@@ -1,10 +1,12 @@
 /* Content invariants (SPEC §3, R-H9): returns a list of problems; empty = valid. Used by tests and `npm run validate`.
    Every Hebrew string the child sees or hears is linted for pointing typos (lintText in hebrew.ts). */
 import { LETTER, clusters, lintText, nfc } from './hebrew.ts';
-import { WORDS } from './content/words.ts';
+import { LONG_WORDS, WORDS } from './content/words.ts';
 import { SENTENCES, SIGHT_WORDS, STORIES } from './content/texts.ts';
 import { NOTEBOOKS, STICKERS_PER_NOTEBOOK } from './content/stickers.ts';
-import { DEFAULT_SPINE, GAMES, SKILLS, SKILL, STRANDS, WORLDS } from './curriculum.ts';
+import { storySentences } from './content/stories.ts';
+import { SCHEMAS, STORY_LENGTH, makeStory } from './content/storygen.ts';
+import { DEFAULT_SPINE, GAMES, MAP_ORDER, SKILLS, SKILL, STRANDS } from './curriculum.ts';
 import { allPhrases } from './phrases.ts';
 
 /** Words checked by hand that legitimately break a mechanical rule (loanwords, interjections, lexical exceptions). */
@@ -15,6 +17,14 @@ export const LINT_OK = new Set([
   'עַגְבָנִיּוֹת',
   'שַׁרְבִיט',     // rafe ב after shva nach (lexical)
   'פֵיָה',        // loanword, initial פ = f
+  'פָלָאפֶל', 'פְלָמִינְגּוֹ', // loanwords, initial פ = f
+  // hovering shva (שְׁוָא מְרַחֵף): the letter after it stays rafe
+  'בִּדְפוּס', 'בִּכְתַב', 'הִפְכִי', 'כִּתְבִי',
+  'הַבַּיְתָה', 'הָעַגְבָנִיָּה', // lexical: ת / ב stay rafe
+  // more hovering shva (stories): בִּ/בְּ/לִ + a shva-initial word
+  'בִּסְפָרִים', 'בִּשְׁבִיל', 'בִּשְׁבִילֵךְ', 'בִּשְׁבִילִי', 'בִּשְׁבִילוֹ', 'בִּגְדֵי', 'בְּבִגְדֵי', 'בִּמְגֵרָה',
+  'בִּסְבִיבוֹנִים', 'בִּצְבָעִים', 'בִּמְכוֹנִית', 'לִצְפַרְדְּעִים',
+  'אֶתְכֶם', 'מַלְכוּתוֹ', 'לָעַגְבָנִיּוֹת', // lexical: כ / ב stay rafe
 ].map(nfc));
 
 /** Emoji added after Unicode 13 (2020) show as empty boxes on older tablets. Symbols & Pictographs Extended-A (U+1FA70…)
@@ -60,6 +70,17 @@ export function validateContent(): string[] {
     checkPointed(where, w.text, e);
     checkEmoji(where, w.emoji, e);
   }
+  for (const w of LONG_WORDS) {
+    const where = `long word ${w.id}`;
+    if (ids.has(w.id)) e.push(`${where}: duplicate id`);
+    ids.add(w.id);
+    if (w.syl.join('') !== w.text.replace(/ /g, '')) e.push(`${where}: syllables do not join to the word (R-H7)`);
+    if (w.syl.length > 7) e.push(`${where}: more than 7 parts (the bakery tray has 7 places)`);
+    if (emojis.has(w.emoji)) e.push(`${where}: picture ${w.emoji} also used by ${emojis.get(w.emoji)}`);
+    emojis.set(w.emoji, w.id);
+    checkPointed(where, w.text, e);
+    checkEmoji(where, w.emoji, e);
+  }
   for (const s of SIGHT_WORDS) checkPointed(`sight ${s.id}`, s.text, e);
   for (const s of SENTENCES) {
     checkPointed(`sentence ${s.id}`, s.text, e);
@@ -70,18 +91,38 @@ export function validateContent(): string[] {
   const pics = SENTENCES.map((s) => s.pic);
   if (new Set(pics).size !== pics.length) e.push('sentences: duplicate pictures (meaning questions would be ambiguous)');
   for (const st of STORIES) {
+    const ss = storySentences(st);
     checkPointed(`story ${st.id} title`, st.title, e);
-    checkEmoji(`story ${st.id}`, st.cover + st.pages.map((p) => p.scene).join('') + st.questions.flatMap((q) => q.options.map((o) => o.emoji)).join(''), e);
-    st.pages.forEach((p, i) => checkPointed(`story ${st.id} p${i}`, p.text, e));
+    checkEmoji(`story ${st.id}`, st.questions.flatMap((q) => q.options.map((o) => o.emoji ?? '')).join(''), e);
+    ss.forEach((t, i) => checkPointed(`story ${st.id} s${i}`, t, e));
     for (const [qi, q] of st.questions.entries()) {
       if (q.answer < 0 || q.answer >= q.options.length) e.push(`story ${st.id} q${qi}: bad answer index`);
-      if (new Set(q.options.map((o) => o.emoji)).size !== q.options.length) e.push(`story ${st.id} q${qi}: duplicate option pictures`);
+      if (new Set(q.options.map((o) => o.label)).size !== q.options.length) e.push(`story ${st.id} q${qi}: duplicate option labels`);
       checkPointed(`story ${st.id} q${qi}`, q.q, e);
       q.options.forEach((o, oi) => checkPointed(`story ${st.id} q${qi} option ${oi}`, o.label, e));
     }
-    if (st.order.some((i) => i < 0 || i >= st.pages.length)) e.push(`story ${st.id}: bad order index`);
-    const scenes = st.order.map((i) => st.pages[i].scene);
-    if (new Set(scenes).size !== scenes.length) e.push(`story ${st.id}: puzzle cards share a picture`);
+    if (st.order.some((i) => i < 0 || i >= ss.length)) e.push(`story ${st.id}: bad order index`);
+    const cards = st.order.map((i) => ss[i]);
+    if (new Set(cards).size !== cards.length) e.push(`story ${st.id}: puzzle cards repeat a sentence`);
+  }
+  // generated stories (v1.3): every plan at every level, a few seeds each
+  for (const schema of SCHEMAS) {
+    for (const level of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        const gs = makeStory(schema, level, seed);
+        const where = `story ${gs.id}`;
+        const ss = gs.paragraphs.flat();
+        if (ss.length !== STORY_LENGTH[level]) e.push(`${where}: ${ss.length} sentences (expected ${STORY_LENGTH[level]})`);
+        checkPointed(`${where} title`, gs.title, e);
+        ss.forEach((t, i) => checkPointed(`${where} s${i}`, t, e));
+        for (const f of gs.facts) {
+          checkPointed(`${where} q`, f.q, e);
+          for (const o of [f.a, ...f.pool]) { checkPointed(`${where} q option`, o.label, e); checkEmoji(where, o.emoji ?? '', e); }
+          if (!f.pool.some((o) => o.label !== f.a.label)) e.push(`${where}: question without wrong answers: ${f.q}`);
+        }
+        if (gs.events.length < 3) e.push(`${where}: fewer than 3 puzzle events`);
+      }
+    }
   }
   const storyIds = STORIES.map((s) => s.id), storyTitles = STORIES.map((s) => s.title);
   if (new Set(storyIds).size !== storyIds.length) e.push('stories: duplicate id');
@@ -105,11 +146,10 @@ export function validateContent(): string[] {
     checkEmoji(`game ${g.id}`, g.icon, e);
     g.mission.forEach((m, i) => checkPointed(`game ${g.id} mission ${i ? 'girl' : 'boy'}`, m, e));
   }
-  for (const w of WORLDS) checkPointed(`world ${w.id}`, w.name, e);
   for (const s of [...SKILLS.filter((x) => !x.id.startsWith('L.')), ...STRANDS]) checkPointed(`label ${s.id}`, s.label, e);
   allPhrases().forEach((p, i) => checkPointed(`phrase ${i}`, p, e));
   for (const u of DEFAULT_SPINE) if (!SKILL[u]) e.push(`spine: unknown skill ${u}`);
   for (const g of GAMES) for (const p of g.skills) if (!p.endsWith('*') && !SKILL[p]) e.push(`game ${g.id}: unknown skill ${p}`);
-  for (const w of WORLDS) for (const g of w.games) if (!GAMES.some((x) => x.id === g)) e.push(`world ${w.id}: unknown game ${g}`);
+  if (MAP_ORDER.length !== GAMES.length || GAMES.some((g) => !MAP_ORDER.includes(g.id))) e.push('map: every game must be on the map once');
   return e;
 }

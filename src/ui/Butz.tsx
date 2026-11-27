@@ -1,14 +1,37 @@
 /* Butz (בּוּץ, with shuruk) the owl: the guide character. Pure SVG so it scales and works offline; bobs gently unless motion is reduced. */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
 import { useSettings } from './theme';
+import type { Trick } from '../engine/phrases';
+
+const nd = Platform.OS !== 'web';
+const TRICK_MS: Record<Trick, number> = { spin: 1000, shake: 800, fly: 2200 };
 
 export type Mood = 'happy' | 'cheer' | 'think' | 'talk';
 
-export function Butz({ size = 140, mood = 'happy' }: { size?: number; mood?: Mood }) {
+export function Butz({ size = 140, mood: moodIn = 'happy', trick }: { size?: number; mood?: Mood; trick?: { kind: Trick; n: number } }) {
   const bob = useRef(new Animated.Value(0)).current;
   const reduced = useSettings().reducedMotion;
+  // a funny move (Home): starts together with the line he says
+  const t = useRef(new Animated.Value(0)).current;
+  const flap = useRef(new Animated.Value(0)).current;
+  const [busy, setBusy] = useState<Trick | null>(null);
+  useEffect(() => {
+    if (!trick || reduced) return;
+    setBusy(trick.kind);
+    t.setValue(0);
+    const run = Animated.parallel([
+      Animated.timing(t, { toValue: 1, duration: TRICK_MS[trick.kind], easing: Easing.linear, useNativeDriver: nd }),
+      Animated.loop(Animated.sequence([
+        Animated.timing(flap, { toValue: 1, duration: 110, useNativeDriver: false }),
+        Animated.timing(flap, { toValue: 0, duration: 110, useNativeDriver: false }),
+      ]), { iterations: Math.round(TRICK_MS[trick.kind] / 220) }),
+    ]);
+    run.start(() => setBusy(null));
+    return () => { run.stop(); setBusy(null); };
+  }, [trick?.n, reduced]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mood: Mood = busy === 'fly' || busy === 'spin' ? 'cheer' : moodIn;
   useEffect(() => {
     if (reduced) return;
     const loop = Animated.loop(Animated.sequence([
@@ -19,11 +42,33 @@ export function Butz({ size = 140, mood = 'happy' }: { size?: number; mood?: Moo
     return () => loop.stop();
   }, [bob, mood, reduced]);
   const ty = bob.interpolate({ inputRange: [0, 1], outputRange: [0, mood === 'cheer' ? -size * 0.08 : -size * 0.03] });
-  const wingL = mood === 'cheer' ? 'rotate(-55 52 125)' : 'rotate(0)';
-  const wingR = mood === 'cheer' ? 'rotate(55 148 125)' : 'rotate(0)';
+  const up = busy === 'fly'
+    ? t.interpolate({ inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1], outputRange: [0, -size * 0.6, -size * 0.45, -size * 0.65, -size * 0.3, 0] })
+    : busy === 'spin' ? t.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -size * 0.25, 0] }) : 0;
+  const side = busy === 'shake'
+    ? t.interpolate({ inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], outputRange: [0, -1, 1, -1, 1, -1, 1, -1, 1, -0.5, 0].map((v) => v * size * 0.06) })
+    : busy === 'fly' ? t.interpolate({ inputRange: [0, 0.3, 0.6, 1], outputRange: [0, size * 0.15, -size * 0.15, 0] }) : 0;
+  const turn = busy === 'spin'
+    ? t.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
+    : busy === 'shake'
+      ? t.interpolate({ inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], outputRange: ['0deg', '-14deg', '14deg', '-14deg', '14deg', '-14deg', '14deg', '-14deg', '14deg', '-6deg', '0deg'] })
+      : busy === 'fly' ? t.interpolate({ inputRange: [0, 0.3, 0.6, 1], outputRange: ['0deg', '10deg', '-10deg', '0deg'] }) : '0deg';
+  const grow = busy === 'spin' ? t.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.2, 1] }) : 1;
+  // wings flap while he flies (up and down between the raised and the resting pose)
+  const wingUp = busy === 'fly' ? flap : null;
+  const [wingPose, setWingPose] = useState(0);
+  useEffect(() => {
+    if (!wingUp) return;
+    const id = wingUp.addListener(({ value }) => setWingPose(value > 0.5 ? 1 : 0));
+    return () => wingUp.removeListener(id);
+  }, [wingUp]);
+  const raised = busy === 'fly' ? wingPose === 1 : mood === 'cheer';
+  const wingL = raised ? 'rotate(-55 52 125)' : 'rotate(0)';
+  const wingR = raised ? 'rotate(55 148 125)' : 'rotate(0)';
   const look = mood === 'think' ? -6 : 0;
   return (
-    <Animated.View style={{ width: size, height: size, transform: [{ translateY: ty }] }} accessibilityLabel="Butz" testID="butz">
+    <Animated.View style={{ width: size, height: size, zIndex: busy ? 5 : 0, transform: [{ translateY: ty }, { translateY: up }, { translateX: side }, { rotate: turn }, { scale: grow }] }}
+      accessibilityLabel="Butz" testID={busy ? 'butz-' + busy : 'butz'}>
       <Svg width={size} height={size} viewBox="0 0 200 200">
         <Ellipse cx="100" cy="190" rx="52" ry="7" fill="rgba(0,0,0,0.12)" />
         <G transform={wingL}><Ellipse cx="45" cy="128" rx="18" ry="40" fill="#7A4A2E" /></G>

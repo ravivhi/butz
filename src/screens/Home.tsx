@@ -1,5 +1,5 @@
 /* Home (SPEC R-N1): one huge Map button (the only way to a game), notebooks, shop. First-run setup starts with the child's gender (R-PA2). */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { createProfile, go, switchProfile, useProfile, useStore } from '../state/store';
 import { Big, Card, Screen, StarPill, Txt } from '../ui/kit';
@@ -8,7 +8,7 @@ import { LiveSticker } from '../ui/LiveSticker';
 import { FONT, ROW, useLayout, usePalette } from '../ui/theme';
 import { onSpeechInfo, say, speechInfo } from '../services/speech';
 import { envelopePrice } from '../engine/economy';
-import { APP_NAME, BUTZ, SAY, g, type Gender } from '../engine/phrases';
+import { APP_NAME, BUTZ, BUTZ_FUN, SAY, g, type Gender, type Trick } from '../engine/phrases';
 
 export const AVATARS = ['🦊', '🐻', '🐼', '🐯', '🐰', '🐸', '🦄', '🐧', '🐶', '🐱', '🦁', '🐨'];
 
@@ -47,6 +47,16 @@ export function Home() {
   const pal = usePalette();
   const { s, short, landscape } = useLayout();
   const surprise = p.wallet.stars >= envelopePrice(p.wallet) || !!p.wallet.golden;
+  // Butz on Home: the first tap always explains; later taps pick the explanation or one of his funny lines at random
+  const taps = useRef(0);
+  const [trick, setTrick] = useState<{ kind: Trick; n: number } | null>(null);
+  const tapButz = () => {
+    const k = taps.current++ === 0 ? -1 : Math.floor(Math.random() * (BUTZ_FUN.length + 1)) - 1;
+    if (k < 0) { setTrick(null); say(g(SAY.homeHelp, p.gender)); return; }
+    const f = BUTZ_FUN[k];
+    setTrick({ kind: f.trick, n: Date.now() });
+    say(f.text, { rate: f.rate });
+  };
   return (
     <Screen testID="home">
       <View style={{ flexDirection: ROW, alignItems: 'center', justifyContent: 'space-between', padding: s(12) }}>
@@ -64,9 +74,9 @@ export function Home() {
       <View style={{ flex: 1, flexDirection: landscape ? ROW : 'column', alignItems: 'center', justifyContent: 'space-evenly', padding: s(12) }}>
         <View style={{ alignItems: 'center', gap: s(14) }}>
           <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(12) }}>
-            {/* tapping Butz explains the app (no separate 👂 button on Home) */}
-            <Pressable testID="help" accessibilityRole="button" accessibilityLabel="הסבר" onPress={() => say(g(SAY.homeHelp, p.gender))}>
-              <Butz size={Math.min(s(170), short * 0.34)} mood="happy" />
+            {/* tapping Butz explains the app (no separate 👂 button on Home); after the first tap he sometimes just clowns around */}
+            <Pressable testID="help" accessibilityRole="button" accessibilityLabel="הסבר" onPress={tapButz}>
+              <Butz size={Math.min(s(170), short * 0.34)} mood="happy" trick={trick ?? undefined} />
             </Pressable>
           </View>
           <LatestStickers />

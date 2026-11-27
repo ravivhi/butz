@@ -167,7 +167,8 @@ test('first run: gender first, starting check, a game from the map, a live stick
   await page.evaluate(() => { const s = (window as any).__butz.getState(); s.profiles[0].wallet.stars = 7; (window as any).__butz.go({ name: 'notebook', id: s.profiles[0].wallet.active, open: true }); });
   await tap(page, 'envelope');
   await expect(page.getByTestId('reveal')).toBeVisible();
-  await tap(page, 'place-sticker');
+  // no button: the sticker goes into the notebook by itself
+  await expect(page.getByTestId('reveal')).toBeHidden({ timeout: 5000 });
   const sticker = page.locator('[data-testid^="sticker-"]');
   await expect(sticker).toHaveCount(1);
   await sticker.first().click();
@@ -198,6 +199,15 @@ test('instructions are written, nothing is spoken unless the child taps 🔊 / �
   await expect.poll(async () => (await spoken(page)).join(' ')).toContain(N('גְּעִי בַּכַּפְתּוֹר הַיָּרֹק'));
   const help = (await spoken(page)).join(' ');
   expect(help).toContain(N('בּוּטְס'));
+  // later taps: sometimes a funny line (אֲנִי בּוּץ! / בּוּץ! / a long בּוּץ!) with a move
+  const before = (await spoken(page)).length;
+  let funny = false;
+  for (let k = 0; k < 25 && !funny; k++) {
+    await tap(page, 'help');
+    funny = await page.locator('[data-testid="butz-spin"], [data-testid="butz-shake"], [data-testid="butz-fly"]').count() > 0;
+  }
+  expect(funny, 'Butz clowns around on some taps').toBeTruthy();
+  await expect.poll(async () => (await spoken(page)).slice(before).join(' ')).toContain(N('בּוּטְס!'));
   expect(help).not.toContain(N('בּוּץ'));
   await freePlay(page, 'syllableHop');
   // the game's instructions are on the mission card, in the girl's form, and are not read aloud
@@ -343,7 +353,8 @@ test('stories: the whole story is one page of text, every question can go back t
   await tap(page, 'open-golden');
   await tap(page, 'golden-envelope');
   await expect(page.getByTestId('reveal')).toBeVisible();
-  await tap(page, 'place-sticker');
+  // no button: the sticker goes into the notebook by itself
+  await expect(page.getByTestId('reveal')).toBeHidden({ timeout: 5000 });
   const wallet = (await state(page)).profiles[0].wallet;
   expect(wallet.golden).toBe(0);
   expect(Object.values(wallet.stickers).flat().some((x: any) => [4, 13, 22, 29].includes(Number(String(x).split(':')[1]))), 'a sparkling sticker').toBeTruthy();

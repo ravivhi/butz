@@ -4,6 +4,8 @@
 > settings, voice check, children management, "advance now") is **removed**, so every setting is fixed to its default
 > and a device has one child. Button taps make **no sound**; only game feedback and gifts/stickers sound. The phone's
 > back button goes one screen back.
+> Tapping Butz on Home: the first tap explains; later taps pick the explanation or a funny line at random
+> ("אֲנִי בּוּץ!" spinning, "בּוּץ!" shaking, a long slow "בּוּץ!" flying up), each move starting with the line.
 
 **Product spec v1.2 (2026-11-24). Source of truth for agents building this app.**
 
@@ -613,7 +615,8 @@ Stickers are large emoji (Unicode ≤ 13, checked by `npm run validate`) on roun
 (`LiveSticker`): each one floats, wiggles, pulses, swings, hops or flips on its own rhythm; a tap makes it jump and spin
 with a sound. Stickers 5, 14, 23 and 30 of every notebook are **shiny** (gold ring, sparkle, twinkle sound, a special
 reveal). The newest stickers also play on the home screen. "Less motion" stops all of it. **Surprise flow:** the
-envelope wiggles when affordable → tap → spinning reveal → "put it in my notebook" → stays forever.
+envelope wiggles when affordable → tap → spinning reveal → the sticker goes into the notebook by itself (no extra
+button, owner 27 Nov 2026) → stays forever.
 **No duplicates (R-R3):** a reveal always picks a sticker the child does not own in the active notebook. A completed
 notebook gets a golden trophy sticker and the next envelope fills another owned notebook.
 

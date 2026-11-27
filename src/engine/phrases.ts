@@ -16,6 +16,15 @@ const NAME = new RegExp(`(^|[^\u0591-\u05C7\u05D0-\u05EA])${BUTZ}(?=$|[^\u0591-\
 /** The exact text handed to a voice (device TTS or the audio generator) for a spoken line. */
 export const speakable = (text: string): string => text.normalize('NFC').replace(NAME, `$1${BUTZ_SAY}`);
 
+/** Funny things Butz says when tapped on Home (instead of the instructions, at random), each with its own move. */
+export type Trick = 'spin' | 'shake' | 'fly';
+export const BUTZ_FUN: { text: string; rate?: number; trick: Trick }[] = [
+  { text: nfc('אֲנִי בּוּץ!'), trick: 'spin' },
+  { text: nfc('בּוּץ!'), trick: 'shake' },
+  // "בּוּוּוּוּץ!": the name said very slowly (TTS cannot read a stretched spelling), while he flies up
+  { text: nfc('בּוּץ!'), rate: 0.3, trick: 'fly' },
+];
+
 export const g = (v: G2, gender: Gender | undefined): string => nfc(typeof v === 'string' ? v : v[gender === 'girl' ? 1 : 0]);
 
 export const PRAISE: G2[] = [
@@ -76,6 +85,6 @@ export const needMore = (n: number, gender: Gender | undefined): string =>
 
 /** Every phrase in both genders (for the nikud lint). */
 export function allPhrases(): string[] {
-  const all: G2[] = [MODEL, ...PRAISE, ...TRY, ...DONE, ...Object.values(SAY), APP_NAME, BUTZ];
+  const all: G2[] = [MODEL, ...PRAISE, ...TRY, ...DONE, ...Object.values(SAY), APP_NAME, BUTZ, ...BUTZ_FUN.map((f) => f.text)];
   return all.flatMap((v) => (typeof v === 'string' ? [nfc(v)] : [nfc(v[0]), nfc(v[1])]));
 }

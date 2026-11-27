@@ -69,6 +69,7 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
   const pages = Math.ceil(nb.stickers.length / PER_PAGE);
   const [page, setPage] = useState(0);
   const [reveal, setReveal] = useState<{ sticker: string; completed: boolean; notebook: string } | null>(null);
+  const shown = useRef<{ sticker: string; completed: boolean; notebook: string } | null>(null);
   const [fresh, setFresh] = useState<string | null>(null);
   const [burst, setBurst] = useState(0);
   const pop = useRef(new Animated.Value(0)).current;
@@ -102,12 +103,15 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
     if (!res.ok) { talk(res.reason === 'stars' ? needMore(price - p.wallet.stars, p.gender) : g(SAY.allFull, p.gender)); return; }
     sfx('reveal');
     setReveal({ sticker: res.sticker, completed: res.completed, notebook: res.notebook });
+    shown.current = { sticker: res.sticker, completed: res.completed, notebook: res.notebook };
     pop.setValue(0);
     Animated.timing(pop, { toValue: 1, duration: reduced ? 1 : 800, easing: Easing.out(Easing.back(2)), useNativeDriver: native }).start();
     talk(g(isShiny(res.sticker) ? SAY.shinySticker : SAY.newSticker, p.gender));
   };
   const place = () => {
+    const reveal = shown.current;
     if (!reveal) return;
+    shown.current = null;
     const idx = Number(reveal.sticker.split(':')[1]);
     if (reveal.notebook !== id) { replace({ name: 'notebook', id: reveal.notebook }); return; }
     setPage(Math.floor(idx / PER_PAGE));
@@ -117,6 +121,13 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
     if (reveal.completed) { sfx('win'); talk(g(SAY.notebookDone, p.gender)); }
     setReveal(null);
   };
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  useEffect(() => {
+    if (!reveal) return;
+    const tm = setTimeout(() => placeRef.current(), reduced ? 900 : 1700);
+    return () => clearTimeout(tm);
+  }, [reveal, reduced]);
 
   const slot = Math.max(s(56), Math.min(s(110), (w - s(70)) / 3 - s(12), (h - s(330)) / 2 - s(12)));
   return (
@@ -161,15 +172,15 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
         )}
       </View>
       {reveal ? (
-        <View testID="reveal" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(36,48,74,0.75)', alignItems: 'center', justifyContent: 'center', gap: s(20) }}>
+        // the new sticker spins in and then flies into the notebook by itself (a tap only makes it go sooner)
+        <Pressable onPress={place} accessibilityLabel="מַדְבֵּקָה" testID="reveal" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(36,48,74,0.75)', alignItems: 'center', justifyContent: 'center', gap: s(20) }}>
           <Animated.View style={{ transform: [{ scale: pop }, { rotate: pop.interpolate({ inputRange: [0, 1], outputRange: ['-200deg', '0deg'] }) }] }}>
             <View style={{ width: s(220), height: s(220), borderRadius: s(110), backgroundColor: isShiny(reveal.sticker) ? '#FFC928' : NOTEBOOK[reveal.notebook].color, borderWidth: s(6), borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: s(130) }}>{stickerEmoji(reveal.sticker)}</Text>
             </View>
           </Animated.View>
           {isShiny(reveal.sticker) ? <Txt size={26} font="read" color="#FFE082">✨ ✨ ✨</Txt> : null}
-          <Big label="לַמַּחְבֶּרֶת!" emoji="📒" color={pal.green} onPress={place} testID="place-sticker" />
-        </View>
+        </Pressable>
       ) : null}
       <Burst run={burst} emojis={['⭐', '✨', '🎉', stickerEmoji(fresh ?? '')]} />
     </Screen>

@@ -20,6 +20,11 @@
       body {
         overflow: hidden;
       }
+      /* no pull-to-refresh / rubber-band page movement on phones (the app scrolls only inside its own lists) */
+      html,
+      body {
+        overscroll-behavior: none;
+      }
       /* These styles make the root element full-height */
       #root {
         display: flex;

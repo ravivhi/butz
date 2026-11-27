@@ -3,7 +3,7 @@
    control. v1.3: a story is one scrolling page of text (no pictures), and every question and the Story Puzzle can go
    back to it (📖, or side by side on a wide landscape screen). */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, PanResponder, Pressable, ScrollView, Text, View, type GestureResponderEvent, type PanResponderGestureState } from 'react-native';
+import { Animated, PanResponder, Platform, Pressable, ScrollView, Text, View, type GestureResponderEvent, type PanResponderGestureState } from 'react-native';
 import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import type { Item, Option } from '../engine/generators';
 import { speakSyllable } from '../engine/generators';
@@ -592,7 +592,10 @@ const BOARD = 300;
 const NEAR = 36; // board units: how close the finger must come to the next checkpoint
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 /** Dragging on the web must not select text around the board. */
-const NO_SELECT = { userSelect: 'none' } as object;
+const NO_SELECT = { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } as object;
+// The writing board owns every touch on it: without this the browser (phones, the TWA) takes the finger drag as a
+// page pan / pull-to-refresh / rubber-band, so the whole screen moved while the child wrote (and the stroke was cut).
+const BOARD_TOUCH = { touchAction: 'none', overscrollBehavior: 'contain' } as object;
 
 export function Trace(p: MechProps) {
   const it = p.item;
@@ -609,6 +612,15 @@ export function Trace(p: MechProps) {
   const props = useRef(p);
   props.current = p;
   const scale = useRef(BOARD / size);
+  const board = useRef<unknown>(null);
+  useEffect(() => {
+    // older mobile browsers ignore touch-action: also stop the default (scroll) of a move on the board itself
+    const el = Platform.OS === 'web' ? (board.current as unknown as HTMLElement | null) : null;
+    if (!el?.addEventListener) return;
+    const stop = (e: Event) => { if (e.cancelable) e.preventDefault(); };
+    el.addEventListener('touchmove', stop, { passive: false });
+    return () => el.removeEventListener('touchmove', stop);
+  }, []);
   scale.current = BOARD / size;
   const guide = p.help >= 1 ? 'full' : tr.guide;
   const cursive = tr.script === 'cursive';
@@ -651,7 +663,10 @@ export function Trace(p: MechProps) {
   };
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
     onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
+    onShouldBlockNativeResponder: () => true,
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: (e: GestureResponderEvent, gs) => {
       stopDemo();
@@ -690,8 +705,8 @@ export function Trace(p: MechProps) {
           <Big emoji="↩️" color={pal.soft} size="s" onPress={restart} testID="trace-restart" />
         </View>
       </View>
-      <View {...pan.panHandlers} testID="trace-board"
-        style={{ width: size, height: size, borderRadius: s(24), borderWidth: s(3), borderColor: done ? pal.good : pal.line, backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+      <View ref={board as never} {...pan.panHandlers} testID="trace-board"
+        style={[BOARD_TOUCH, { width: size, height: size, borderRadius: s(24), borderWidth: s(3), borderColor: done ? pal.good : pal.line, backgroundColor: '#FFFFFF', overflow: 'hidden' }]}>
         <View pointerEvents="none">
           <Svg width={size} height={size} viewBox={`0 0 ${BOARD} ${BOARD}`}>
             <Rect x={0} y={0} width={BOARD} height={BOARD} fill="#FFFFFF" />

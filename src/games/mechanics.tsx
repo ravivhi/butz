@@ -94,7 +94,6 @@ export function Bakery(p: MechProps) {
       placedRef.current = np;
       setPlaced(np);
       if (p.auto) say(speakSyllable(o.text!), { rate: RATE.stimulus });
-      else sfx('tap');
       if (np.length === seq.length) setTimeout(() => p.onRight(), 350);
     } else {
       setBounce(o.id);
@@ -148,7 +147,6 @@ export function Gaps(p: MechProps) {
       setCur(c + 1);
       setWrongIds(new Set());
       if (c + 1 >= gaps.length) p.onRight();
-      else sfx('tap');
     } else {
       setWrongIds((x) => new Set(x).add(o.id));
       p.onWrong(o.id);
@@ -297,7 +295,7 @@ export function StoryRead(p: MechProps) {
         </ScrollView>
       </Card>
       <View style={{ flexDirection: ROW, gap: s(14), alignItems: 'center' }}>
-        <Big label="קָרָאתִי!" emoji="⬅️" color={pal.green} size="m" onPress={() => { stop(); sfx('page'); p.onNext(); }} testID="story-done" />
+        <Big label="קָרָאתִי!" emoji="⬅️" color={pal.green} size="m" onPress={() => { stop(); p.onNext(); }} testID="story-done" />
       </View>
     </View>
   );
@@ -408,7 +406,6 @@ export function StoryOrder(p: MechProps) {
       const np = [...cur, o.id];
       placedRef.current = np;
       setPlaced(np);
-      sfx('tap');
       if (np.length === seq.length) setTimeout(() => p.onRight(), 300);
     } else {
       setBounce(o.id);
@@ -551,7 +548,6 @@ export function Memory(p: MechProps) {
   const pairOf = (id: string) => id.slice(2);
   const tap = (o: Option) => {
     if (busy.current || matchedRef.current.has(o.id) || openRef.current.includes(o.id)) return;
-    sfx('tap');
     if (p.auto && o.say) say(o.say, { rate: RATE.stimulus });
     const nx = [...openRef.current, o.id];
     show(nx);

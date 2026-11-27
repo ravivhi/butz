@@ -46,7 +46,7 @@ export function Notebooks() {
           const pr = progress(p.wallet, n.id);
           return (
             <Pressable key={n.id} testID={'nb-' + n.id} accessibilityLabel={n.name}
-              onPress={() => { sfx('tap'); if (owned) go({ name: 'notebook', id: n.id }); else { talk([n.name, g(SAY.inShop, p.gender)]); go({ name: 'shop' }); } }}>
+              onPress={() => { if (owned) go({ name: 'notebook', id: n.id }); else { talk([n.name, g(SAY.inShop, p.gender)]); go({ name: 'shop' }); } }}>
               <Card color={owned ? n.color : '#CFD8DC'} style={{ width: s(150), height: s(180), alignItems: 'center', justifyContent: 'center', gap: s(6), opacity: owned ? 1 : 0.6 }}>
                 <Text style={{ fontSize: s(60) }}>{owned ? n.cover : '🔒'}</Text>
                 <Txt size={16} font="read" color="#FFFFFF">{n.name}</Txt>
@@ -99,7 +99,7 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
     let res: ReturnType<typeof openEnvelope> | undefined;
     updateProfile((pp) => { pp.wallet.active = id; res = openEnvelope(pp.wallet, makeRng(), golden); });
     if (!res) return;
-    if (!res.ok) { sfx('boing'); talk(res.reason === 'stars' ? needMore(price - p.wallet.stars, p.gender) : g(SAY.allFull, p.gender)); return; }
+    if (!res.ok) { talk(res.reason === 'stars' ? needMore(price - p.wallet.stars, p.gender) : g(SAY.allFull, p.gender)); return; }
     sfx('reveal');
     setReveal({ sticker: res.sticker, completed: res.completed, notebook: res.notebook });
     pop.setValue(0);
@@ -147,9 +147,9 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
           {have.has(stickerId(id, 'gold')) && page === pages - 1 ? <View style={{ alignItems: 'center', marginTop: s(8) }}><LiveSticker id={stickerId(id, 'gold')} size={s(70)} /></View> : null}
         </Card>
         <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(16) }}>
-          <Round emoji="➡️" label="עמוד קודם" onPress={() => { sfx('page'); setPage((x) => Math.max(0, x - 1)); }} testID="page-prev" />
+          <Round emoji="➡️" label="עמוד קודם" onPress={() => setPage((x) => Math.max(0, x - 1))} testID="page-prev" />
           <Txt size={20} font="uiHeavy">{`${page + 1}/${pages}`}</Txt>
-          <Round emoji="⬅️" label="עמוד הבא" onPress={() => { sfx('page'); setPage((x) => Math.min(pages - 1, x + 1)); }} testID="page-next" />
+          <Round emoji="⬅️" label="עמוד הבא" onPress={() => setPage((x) => Math.min(pages - 1, x + 1))} testID="page-next" />
         </View>
         {canGolden ? <Big label="מַעֲטָפַת זָהָב!" emoji="🏆" color={pal.gold} glow onPress={() => openIt(true)} testID="golden-envelope" /> : null}
         {canOpen ? (
@@ -184,14 +184,14 @@ export function Shop() {
   const nbPrice = notebookPrice(p.wallet);
   const forSale = notebooksFor(p.gender).filter((n) => !p.wallet.owned.includes(n.id));
   const buyEnvelope = () => {
-    if (p.wallet.stars < price) { sfx('boing'); talk(needMore(price - p.wallet.stars, p.gender)); return; }
+    if (p.wallet.stars < price) { talk(needMore(price - p.wallet.stars, p.gender)); return; }
     go({ name: 'notebook', id: p.wallet.active, open: true });
   };
   const buy = (id: string) => {
     let ok = false;
     updateProfile((pp) => { ok = buyNotebook(pp.wallet, id).ok; });
     if (ok) { sfx('win'); talk(g(SAY.newNotebook, p.gender)); go({ name: 'notebook', id }); }
-    else { sfx('boing'); talk(needMore(nbPrice - p.wallet.stars, p.gender)); }
+    else { talk(needMore(nbPrice - p.wallet.stars, p.gender)); }
   };
   return (
     <Screen testID="shop" bg="#FFE3F1">

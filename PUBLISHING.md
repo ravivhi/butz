@@ -138,9 +138,9 @@ checklist and report the results to the owner:
       write a letter with a finger from the red dot along the grey path, first in print, then in cursive.
       **בָּלוֹנֵי אוֹתִיּוֹת**: the letter is shown in print, the balloons are in cursive.
 - [ ] Stories (בַּלַּשׁ הַסִּפּוּרִים, פָּאזֶל הַסִּפּוּר): the whole story is one page, and every question can go back to it.
-- [ ] Grown-ups area (⚙️ on Home): press and hold the lock button 3 seconds, then answer the addition question. Go
-      to **בדיקת קול** (voice check) and press ▶ next to the name. It must sound like **"Butz"** (u as in "put"), not
-      "botz". If it sounds wrong, tell the owner; a recorded clip can be added (`src/services/clips.ts`).
+- [ ] There is no grown-ups area (removed by the owner, 27 Nov 2026): no ⚙️ on Home, no settings.
+- [ ] Tapping buttons makes no sound; games still sound right/wrong answers, and getting stickers or a notebook sounds.
+- [ ] The phone's back button goes one screen back, and closes the app only from Home.
 - [ ] Play one full session from "מַמְשִׁיכִים!", open the sticker notebooks and the shop (envelopes and notebooks start at
       5 ⭐). Stickers animate and jump when tapped.
 
@@ -158,7 +158,7 @@ is fine.
 • אין באפליקציה פרסומות, רכישות, חשבונות משתמש, מעקב או כלי ניתוח (אנליטיקה).
 • האפליקציה אינה משתמשת במיקרופון, במצלמה או במיקום.
 • ההקראה נעשית מהקלטות שנמצאות בתוך האפליקציה, ואם אין הקלטה — באמצעות מנוע הדיבור (TTS) של מערכת ההפעלה. ייתכן שספק מערכת ההפעלה (למשל Google) מעבד את הטקסט המוקרא לפי מדיניות הפרטיות שלו.
-• מחיקת האפליקציה או מחיקת פרופיל באזור ההורים מוחקת את כל המידע.
+• ניקוי נתוני האתר ravivh.com ב־Chrome מוחק את כל המידע.
 לשאלות: <EMAIL>
 
 Privacy Policy — Reading with Butz (קוראים עם בּוּץ)
@@ -170,7 +170,7 @@ Last updated: <DATE>
 • The app does not use the microphone, camera or location.
 • Speech comes from recordings bundled in the app, or else from the device's built-in text-to-speech engine; the
   operating-system provider (e.g. Google) may process the spoken text under its own privacy policy.
-• Uninstalling the app, or deleting a profile in the grown-ups area, deletes all data.
+• Clearing the site data of ravivh.com in Chrome deletes all data.
 Contact: <EMAIL>
 ```
 
@@ -193,7 +193,7 @@ Play Console → **Create app**:
 |---------|--------|
 | Privacy policy | The URL from §6 |
 | Ads | **No**, the app has no ads |
-| App access | All functionality is available without special access. Optional note for reviewers: "Grown-ups area: tap ⚙️, press and hold the lock button for 3 seconds, then answer the addition question." |
+| App access | All functionality is available without special access. There is no login, no settings area and nothing locked. |
 | Content rating | Fill the IARC questionnaire. Category **Reference, News, or Educational**. Answer **No** to violence, sexuality, language, controlled substances, gambling, user interaction / chat, sharing location, and digital purchases. |
 | Target audience and content | Age groups **5 and under** and **6-8**. The app is **designed for children** → Google Play **Families policy** applies. The app meets it: no ads, no data collection, no third-party SDKs. |
 | Data safety | Does the app collect or share user data? **No**. Data that stays on the device does not count as collected. No account creation, so no account-deletion URL is needed. |
@@ -217,7 +217,6 @@ Play Console → **Create app**:
 ● הילד/ה משחקים לבד, בשקט: ההוראות כתובות על המסך, ובלחיצה על 🔊 שומעים את הצליל או המילה
 ● פונה לבנים ולבנות בלשון המתאימה
 ● מחברות מדבקות חיות ומונפשות שמרוויחים במשחק — בלי לחץ ובלי להפסיד כלום
-● אזור הורים: התקדמות לפי תחומים, קצב דיבור, גודל טקסט, ניגודיות גבוהה, פחות תנועה ופחות אפשרויות בכל שאלה
 
 בלי פרסומות, בלי רכישות, בלי חשבון ובלי איסוף מידע. הכול נשמר רק במכשיר ועובד גם בלי אינטרנט.
 

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONT, ROW, useLayout, usePalette, useSettings } from './theme';
-import { sfx } from '../services/sfx';
 import { say } from '../services/speech';
 
 const native = Platform.OS !== 'web';
@@ -43,7 +42,7 @@ export function Big({ label, emoji, color, onPress, speak, size = 'l', testID, d
         disabled={disabled}
         onPressIn={p.onPressIn}
         onPressOut={p.onPressOut}
-        onPress={() => { sfx('tap'); if (speak) say(speak); onPress(); }}
+        onPress={() => { if (speak) say(speak); onPress(); }}
         style={{
           flexDirection: ROW, alignItems: 'center', justifyContent: 'center', gap: s(10), backgroundColor: bg, opacity: disabled ? 0.45 : 1,
           paddingVertical: s(pad), paddingHorizontal: s(pad * 1.4), borderRadius: s(pad * 1.6), borderWidth: s(3), borderColor: pal.line,
@@ -63,7 +62,7 @@ export function Round({ emoji, onPress, testID, label, color, size = 56 }: { emo
   const p = usePress();
   return (
     <Animated.View style={{ transform: [{ scale: p.scale }] }}>
-      <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPressIn={p.onPressIn} onPressOut={p.onPressOut} onPress={() => { sfx('tap'); onPress(); }}
+      <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPressIn={p.onPressIn} onPressOut={p.onPressOut} onPress={onPress}
         style={{ width: s(size), height: s(size), borderRadius: s(size), backgroundColor: color ?? pal.card, borderWidth: s(3), borderColor: pal.line, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: s(size * 0.48) }}>{emoji}</Text>
       </Pressable>

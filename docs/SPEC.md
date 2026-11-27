@@ -1,5 +1,10 @@
 # קוֹרְאִים עִם בּוּץ — Reading with Butz
 
+> **Owner changes, 27 Nov 2026 (they override the requirements below):** the grown-ups / parents area (gate, report,
+> settings, voice check, children management, "advance now") is **removed**, so every setting is fixed to its default
+> and a device has one child. Button taps make **no sound**; only game feedback and gifts/stickers sound. The phone's
+> back button goes one screen back.
+
 **Product spec v1.2 (2026-11-24). Source of truth for agents building this app.**
 
 > **v1.2 changes (owner feedback after trying v1.1):** (1) the shop starts at **5 stars** (envelopes and notebooks, §10);

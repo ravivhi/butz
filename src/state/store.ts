@@ -48,9 +48,7 @@ export type Route =
   | { name: 'placement' }
   | { name: 'notebooks' }
   | { name: 'notebook'; id: string; open?: boolean }
-  | { name: 'shop' }
-  | { name: 'gate'; then: Route }
-  | { name: 'parent'; tab?: 'report' | 'settings' | 'voice' | 'children' };
+  | { name: 'shop' };
 
 interface State { profiles: Profile[]; currentId: string | null; hydrated: boolean; stack: Route[] }
 
@@ -99,7 +97,8 @@ function migrate(p: Profile): Profile {
   if (!wallet.owned.length) wallet.owned = newWallet(gender).owned;
   if (!NOTEBOOK[wallet.active]) wallet.active = wallet.owned[0];
   return {
-    ...p, gender, wallet, settings: { ...DEFAULT_SETTINGS, ...p.settings }, spine: p.spine?.length ? p.spine : DEFAULT_SPINE,
+    ...p, gender, wallet, settings: { ...DEFAULT_SETTINGS }, // no grown-ups area: settings are fixed
+    spine: p.spine?.length ? p.spine : DEFAULT_SPINE,
     learner: { ...p.learner, seen: p.learner.seen ?? {} },
   };
 }

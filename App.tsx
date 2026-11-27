@@ -18,7 +18,6 @@ import { Home, Setup } from './src/screens/Home';
 import { Placement, Play } from './src/screens/Play';
 import { MapScreen } from './src/screens/Map';
 import { NotebookView, Notebooks, Shop } from './src/screens/Stickers';
-import { Gate, Parent } from './src/screens/Parent';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -37,8 +36,6 @@ function Router() {
     case 'notebooks': return <Notebooks />;
     case 'notebook': return <NotebookView key={r.id} id={r.id} open={r.open} />;
     case 'shop': return <Shop />;
-    case 'gate': return <Gate then={r.then} />;
-    case 'parent': return <Parent tab={r.tab} />;
   }
 }
 

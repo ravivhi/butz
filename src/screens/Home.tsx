@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { createProfile, go, switchProfile, useProfile, useStore } from '../state/store';
-import { Big, Card, HelpButton, Round, Screen, StarPill, Txt } from '../ui/kit';
+import { Big, Card, HelpButton, Screen, StarPill, Txt } from '../ui/kit';
 import { Butz } from '../ui/Butz';
 import { LiveSticker } from '../ui/LiveSticker';
 import { FONT, ROW, useLayout, usePalette } from '../ui/theme';
@@ -46,20 +46,18 @@ export function Home() {
   const p = useProfile()!;
   const pal = usePalette();
   const { s, short, landscape } = useLayout();
-  const many = useStore((st) => st.profiles.length > 1);
   const surprise = p.wallet.stars >= envelopePrice(p.wallet) || !!p.wallet.golden;
   return (
     <Screen testID="home">
       <View style={{ flexDirection: ROW, alignItems: 'center', justifyContent: 'space-between', padding: s(12) }}>
         <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(8) }}>
-          <Round emoji={p.avatar} label="החלפת ילד" onPress={() => many && go({ name: 'gate', then: { name: 'parent', tab: 'children' } })} testID="avatar" />
+          <View testID="avatar" accessibilityLabel={p.name} style={{ width: s(50), height: s(50), borderRadius: s(25), backgroundColor: pal.card, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: s(28) }}>{p.avatar}</Text>
+          </View>
           <Txt size={24} font="uiHeavy">{p.name}</Txt>
         </View>
         <View style={{ flexDirection: ROW, alignItems: 'center', gap: s(10) }}>
           <StarPill n={p.wallet.stars} />
-          <Pressable onPress={() => go({ name: 'gate', then: { name: 'parent' } })} testID="parent" accessibilityLabel="אזור הורים" style={{ padding: s(6) }}>
-            <Text style={{ fontSize: s(26), opacity: 0.6 }}>⚙️</Text>
-          </Pressable>
         </View>
       </View>
       <NoVoiceBanner />

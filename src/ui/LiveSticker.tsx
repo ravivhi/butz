@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, View } from 'react-native';
 import { isShiny, stickerEmoji, stickerIndex } from '../engine/content/stickers';
-import { sfx } from '../services/sfx';
 import { useLayout, usePalette, useSettings } from './theme';
 
 const native = Platform.OS !== 'web';
@@ -49,7 +48,7 @@ export function LiveSticker({ id, size, testID, fresh = false }: { id: string; s
       Animated.timing(tap, { toValue: 0, duration: reduced ? 1 : 520, easing: Easing.bounce, useNativeDriver: native }),
     ]).start();
   };
-  const onTap = () => { sfx(shiny ? 'twinkle' : 'boing'); play(); };
+  const onTap = () => play();
 
   const r = (a: string, b: string) => idle.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
   const n = (a: number, b: number) => idle.interpolate({ inputRange: [0, 1], outputRange: [a, b] });

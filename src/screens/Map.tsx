@@ -7,7 +7,6 @@ import { nfc } from '../engine/hebrew';
 import { back, go, useProfile } from '../state/store';
 import { Card, Screen, TopBar, Txt } from '../ui/kit';
 import { ROW, useLayout, usePalette } from '../ui/theme';
-import { sfx } from '../services/sfx';
 
 export function MapScreen() {
   const p = useProfile()!;
@@ -22,7 +21,7 @@ export function MapScreen() {
           const gold = GOLDEN_GAMES.has(id);
           return (
             <View key={id} style={{ width: '100%', maxWidth: s(560), alignItems: i % 2 ? 'flex-start' : 'flex-end' }}>
-              <Pressable testID={'game-' + id} accessibilityLabel={def.name} onPress={() => { sfx('tap'); go({ name: 'play', game: id }); }}>
+              <Pressable testID={'game-' + id} accessibilityLabel={def.name} onPress={() => go({ name: 'play', game: id })}>
                 <Card color={def.color} style={[{ flexDirection: ROW, alignItems: 'center', gap: s(12), minWidth: s(250) }, gold ? { borderColor: pal.gold, borderWidth: s(6), shadowColor: pal.gold } : null]}>
                   <Text style={{ fontSize: s(52) }}>{def.icon}</Text>
                   <View>

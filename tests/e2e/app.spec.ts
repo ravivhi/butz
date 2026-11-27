@@ -211,11 +211,6 @@ test('instructions are written, nothing is spoken unless the child taps 🔊 / �
   expect(await spoken(page), 'the stimulus waits for 🔊').toEqual([]);
   await tap(page, 'replay');
   await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(0);
-  // the parent can turn read-aloud back on
-  await page.evaluate(() => { const s = (window as any).__butz.getState(); s.profiles[0].settings.autoSpeak = true; });
-  await freePlay(page, 'syllableHop');
-  await tap(page, 'go');
-  await expect.poll(async () => (await spoken(page)).length).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
 
@@ -385,47 +380,14 @@ test('hidden levels: a hard Missing Letter has three boxes, success keeps it har
   expect(errors).toEqual([]);
 });
 
-test('grown-ups area: gate, report with hidden levels, settings, voice check with the name, gender, second child', async ({ page }) => {
+test('no grown-ups area: no gate, no settings; Home has no ⚙️ and the avatar is not a button', async ({ page }) => {
   const errors = trackErrors(page);
-  await firstRun(page, 'מיה');
-  await tap(page, 'placement-continue');
-  await tap(page, 'close');
+  await firstRun(page, 'גל');
+  await page.evaluate(() => (window as any).__butz.go({ name: 'home' }));
   await expect(page.getByTestId('home')).toBeVisible();
-  await tap(page, 'parent');
-  const hold = page.getByTestId('gate-hold');
-  await hold.hover();
-  await page.mouse.down();
-  await page.waitForTimeout(2800);
-  await page.mouse.up();
-  await tap(page, 'gate-answer');
-  await expect(page.getByTestId('report')).toBeVisible();
-  await expect(page.getByTestId('strand-letters')).toBeVisible();
-  await expect(page.getByTestId('level-storyDetective')).toBeVisible();
-  await tap(page, 'tab-settings');
-  await tap(page, 'set-minutes-12');
-  await tap(page, 'school-V.a');
-  await tap(page, 'set-autospeak');
-  const p = (await state(page)).profiles[0];
-  expect(p.settings.minutes).toBe(12);
-  expect(p.settings.autoSpeak).toBe(true);
-  expect(p.school).toContain('V.a');
-  await tap(page, 'tab-voice');
-  await tap(page, 'play-name');
-  await expect.poll(async () => (await spoken(page)).at(-1)).toBe(N('בּוּטְס'));
-  await tap(page, 'bad-snd:mem');
-  expect((await state(page)).profiles[0].audioBad).toContain('snd:mem');
-  await tap(page, 'tab-children');
-  await tap(page, `gender-${p.id}-boy`);
-  expect((await state(page)).profiles[0].gender).toBe('boy');
-  await tap(page, 'add-child');
-  await tap(page, 'gender-boy');
-  await page.getByTestId('name').fill('תום');
-  await tap(page, 'start');
-  await expect(page.getByTestId('placement-intro')).toBeVisible();
-  const st = await state(page);
-  expect(st.profiles.length).toBe(2);
-  expect(st.profiles[1].gender).toBe('boy');
-  expect(st.profiles[1].wallet.owned).toEqual(['animals', 'dino']);
+  await expect(page.getByTestId('parent')).toHaveCount(0);
+  await expect(page.getByLabel('אזור הורים')).toHaveCount(0);
+  await expect(page.getByTestId('avatar').getByRole('button')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

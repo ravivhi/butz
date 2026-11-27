@@ -75,14 +75,14 @@ src/engine/             PURE TypeScript, no React/RN — all teaching logic, uni
   placement.ts          playful starting check (state machine)
   strokes.ts            letter stroke paths for the Writing Workshop + checkpoint sampler
   spoken.ts             allSpokenTexts(): every line the app can say (input of scripts/make-audio.ts)
-  economy.ts report.ts  stars/envelope + notebook prices (from 5 ⭐); parent report model
+  economy.ts report.ts  stars/envelope + notebook prices (from 5 ⭐); report model (unused since the grown-ups area was removed)
   validate.ts           content invariants + nikud lint + emoji ≤ Unicode 13 (used by tests and npm run validate)
-src/state/store.ts      profiles (local AsyncStorage key 'butz:v1', gender per child), settings (autoSpeak…), navigation
+src/state/store.ts      profiles (local AsyncStorage key 'butz:v1', gender per child), settings (fixed to DEFAULT_SETTINGS: no grown-ups area), navigation
 src/services/           speech.ts (clips first, else expo-speech), clips.ts (+ generated clips.generated.ts), sfx.ts, backButton.ts
 src/ui/                 theme.ts, kit.tsx (Big, Tile, TopBar, HelpButton 👂, ListenButton 🔊, Pop…), Butz.tsx, LiveSticker.tsx
 src/games/              GameHost.tsx (silent by default, help levels, visual feedback, stars) + mechanics.tsx
 src/screens/            Home (+Setup: gender → name/friend), Play (+SessionEnd, Placement), Map (+World),
-                        Stickers (Notebooks, Notebook, Shop), Parent (+Gate)
+                        Stickers (Notebooks, Notebook, Shop)
 assets/                 icons + splash (make-icons.mjs), sfx (make-sfx.mjs), audio/ (make-audio.ts)
 store/                  Google Play icon and feature graphic
 public/                 copied into the web build: index.html (page template), manifest.json, icons/, privacy.html
@@ -103,7 +103,7 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 7. **R-H11** Content must not repeat: show new things through generators (they read `learner.seen`), never pick at random.
 8. **R-G5** Nothing is spoken automatically (v1.2): not instructions, stimuli, praise, demos or stories. New screens get a
    👂 `HelpButton`; heard items get the 🔊 `ListenButton`; feedback is sfx + animation. Automatic speech only behind
-   `settings.autoSpeak` (parent switch, off by default). The e2e suite checks that a whole session says nothing.
+   `settings.autoSpeak` (always off now that there is no grown-ups area). The e2e suite checks that a whole session says nothing.
 9. **R-N7** Anything said *to* the child is gendered: add `[boy, girl]` to `phrases.ts` (or `mission` in `curriculum.ts`).
 10. Engine files import each other **with `.ts` extensions** (Node runs them natively); UI files import the engine without.
 11. Child screens: tap-only (no drag, except the Writing Workshop board); no timers, lives, leaderboards or lost rewards.
@@ -146,13 +146,15 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 | v1.2 games: letterTrace (Writing Workshop), balloonPop, memoryMatch, missingLetter | done |
 | Extra: robotMixer (used by placement), Story Time | done |
 | Content: 340 words, 55 sight words, 72 sentences, 26 stories; anti-repetition | done (`checked`) |
-| Gender-first setup, gendered speech, silent by default (👂 / 🔊 / 💡 on demand, parent read-aloud switch) | done |
-| Progression: all worlds open, faster introduction, never-stuck guard, parent "להתקדם עכשיו" | done |
+| Gender-first setup, gendered speech, silent by default (👂 / 🔊 / 💡 on demand) | done |
+| Progression: all worlds open, faster introduction, never-stuck guard | done |
 | Rewards: 16 gendered notebooks × 30 live stickers (shiny ones), envelopes from 5 ⭐, notebooks from 5 ⭐, shop | done |
-| Parent area: gate, report, settings, voice check (incl. the name and the clip count), children (+ gender) | done |
+| Grown-ups area (gate, report, settings, voice check, children) | **removed** by the owner (27 Nov 2026); one child per device, settings fixed to the defaults |
+| Sounds | only game feedback (right/wrong, pop, hop, match, stroke done, stars/win) and gifts/stickers (envelope, sticker, notebook); **no sound on button taps** (owner, 27 Nov 2026) |
+| Phone back button (Android, TWA, browser) | done (`src/services/backButton.ts`) |
 | App icons, splash, Play store graphics, Android package id | done |
 | Installable offline web app (manifest, service worker) + Android TWA (`android-twa/`, signed with the upload key) | done |
-| E2E: first run (silent session), on-demand speech + read-aloud switch, beginner path, every game from the map for a beginner, writing with a finger, grown-ups, shop (tablet + phone) | done |
+| E2E: first run (silent session), on-demand speech, beginner path, every game from the map for a beginner, writing with a finger, no grown-ups area, shop, back button (tablet + phone) | done |
 | Neural audio: pipeline + inventory ready (`npm run audio`, ≈ 2,800 lines); **clips not generated yet** (needs the owner's Azure Speech key) | waiting for key |
 | v1 games: soundTwins, firstSoundMarket, nikudSorter, missingSound, shvaSubmarine, ahvyDetectives, longWordMaze, storyRehearsal, whatNext, drawWhatYouRead; parent voice recording | not started |
 | Teacher spot-check of the stories | recommended before a public release |

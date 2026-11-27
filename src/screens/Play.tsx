@@ -41,7 +41,7 @@ function SessionEnd({ result, again }: { result: SessionResult; again: () => voi
   const won = result.stars > 0;
   if (!said.current) {
     said.current = true;
-    sfx(won ? 'win' : 'tap');
+    if (won) sfx('win');
     if (p.settings.autoSpeak) say(g(!won ? SAY.noPrize : result.early ? SAY.sessionEndEarly : SAY.sessionEnd, p.gender), { rate: RATE.talk });
   }
   return (
@@ -102,7 +102,7 @@ export function Placement() {
   const answer = async (ok: boolean) => {
     if (!st.current || locked) return;
     setLocked(true);
-    sfx(ok ? 'correct' : 'tap');
+    if (ok) sfx('correct');
     if (auto) await say(g(ok ? SAY.placementOk : SAY.placementNext, p.gender), { rate: RATE.talk });
     else await new Promise((r) => setTimeout(r, 450));
     updateProfile((pp) => answerPlacement(st.current!, pp.learner, { ...ctx(), known: knownFor(pp) }, ok, Date.now()));

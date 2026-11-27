@@ -13,6 +13,7 @@ import { Rubik_800ExtraBold } from '@expo-google-fonts/rubik/800ExtraBold';
 import { getState, go, hydrate, useRoute, useStore } from './src/state/store';
 import { initSpeech, stopSpeech } from './src/services/speech';
 import { initAudio } from './src/services/sfx';
+import { initBackButton } from './src/services/backButton';
 import { Home, Setup } from './src/screens/Home';
 import { Placement, Play } from './src/screens/Play';
 import { MapScreen } from './src/screens/Map';
@@ -47,7 +48,7 @@ export default function App() {
   useEffect(() => {
     initAudio();
     initSpeech();
-    hydrate().then(() => setReady(true));
+    hydrate().then(() => { initBackButton(); setReady(true); });
     if (Platform.OS === 'web') (globalThis as any).__butz = { getState, go };
   }, []);
   const loaded = ready && (fonts || !!fontError);

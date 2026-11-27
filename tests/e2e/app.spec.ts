@@ -452,3 +452,35 @@ test('shop: notebooks follow the gender, cost 5 stars at first, and too few star
   await expect(page.getByTestId('buy-sea')).toContainText('10 ⭐');
   expect(errors).toEqual([]);
 });
+
+test("the phone's back button goes one screen back, and leaves the app only from the first screen", async ({ page }) => {
+  const errors = trackErrors(page);
+  await firstRun(page, 'אור');
+  const screens = () => page.evaluate(() => (window as any).__butz.getState().stack.map((r: any) => r.name).join('>'));
+  const guard = () => page.evaluate(() => !!history.state?.butzGuard);
+  await tap(page, 'placement-continue');
+  await expect(page.getByTestId('map')).toBeVisible();
+  expect(await screens()).toBe('home>map');
+  await page.goBack(); // the phone's back button in the Android app = browser back
+  await expect(page.getByTestId('home')).toBeVisible();
+  expect(await screens()).toBe('home');
+  await expect.poll(guard, 'on the first screen there is no extra history entry, so back leaves the app').toBe(false);
+
+  await tap(page, 'nav-map');
+  await tap(page, 'game-syllableHop');
+  await expect.poll(screens).toBe('home>map>play');
+  await page.goBack();
+  await expect(page.getByTestId('map')).toBeVisible();
+  expect(await screens()).toBe('home>map');
+  await expect.poll(guard).toBe(true);
+  await page.goBack();
+  await expect(page.getByTestId('home')).toBeVisible();
+
+  // leaving a screen with the app's own ✕ also drops the extra entry
+  await tap(page, 'nav-shop');
+  await expect.poll(guard).toBe(true);
+  await tap(page, 'close');
+  await expect(page.getByTestId('home')).toBeVisible();
+  await expect.poll(guard).toBe(false);
+  expect(errors).toEqual([]);
+});

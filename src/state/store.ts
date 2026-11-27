@@ -74,6 +74,7 @@ export function saveNow(): void {
 }
 
 const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
+export const subscribeStore = subscribe;
 
 // Flush pending saves when the app goes to the background or the page is closed.
 AppState.addEventListener('change', (s) => { if (s !== 'active' && saveTimer) saveNow(); });
@@ -168,5 +169,12 @@ export function useRoute(): Route { return useStore(() => route()); }
 export function go(r: Route): void { state.stack.push(r); emit(false); }
 export function replace(r: Route): void { state.stack[state.stack.length - 1] = r; emit(false); }
 export function back(): void { if (state.stack.length > 1) state.stack.pop(); else state.stack = [{ name: 'home' }]; emit(false); }
+/** The phone's back button (src/services/backButton.ts): one screen back. False on the first screen, so the
+ *  system may close the app. */
+export function systemBack(): boolean {
+  if (state.stack.length <= 1) return false;
+  back();
+  return true;
+}
 export function home(): void { state.stack = [{ name: current() ? 'home' : 'setup' }]; emit(false); }
 export const refresh = () => emit();

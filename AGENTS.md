@@ -78,7 +78,7 @@ src/engine/             PURE TypeScript, no React/RN — all teaching logic, uni
   economy.ts report.ts  stars/envelope + notebook prices (from 5 ⭐); parent report model
   validate.ts           content invariants + nikud lint + emoji ≤ Unicode 13 (used by tests and npm run validate)
 src/state/store.ts      profiles (local AsyncStorage key 'butz:v1', gender per child), settings (autoSpeak…), navigation
-src/services/           speech.ts (clips first, else expo-speech), clips.ts (+ generated clips.generated.ts), sfx.ts
+src/services/           speech.ts (clips first, else expo-speech), clips.ts (+ generated clips.generated.ts), sfx.ts, backButton.ts
 src/ui/                 theme.ts, kit.tsx (Big, Tile, TopBar, HelpButton 👂, ListenButton 🔊, Pop…), Butz.tsx, LiveSticker.tsx
 src/games/              GameHost.tsx (silent by default, help levels, visual feedback, stars) + mechanics.tsx
 src/screens/            Home (+Setup: gender → name/friend), Play (+SessionEnd, Placement), Map (+World),
@@ -169,4 +169,7 @@ tests/e2e/app.spec.ts   Playwright flows; scripts/serve.mjs serves dist/
 - Web drag: use the gesture's `dx/dy` from the grant point (`locationX/Y`), not `pageX/Y` — the page may be scrolled.
 - Mechanics that collect several taps (FindTap, Balloons, Memory, Bakery, Sequence) keep their progress in a ref:
   two fast taps arrive before React re-renders, and a state value read from the closure loses one of them.
+- **Phone back button:** `src/services/backButton.ts`. The screens are a stack in the store, not browser pages, so on
+  the web (and the Android TWA) it keeps one extra history entry while the app is past its first screen and turns
+  `popstate` into `systemBack()`. Navigate only through `go` / `replace` / `back` / `home` so it stays in sync.
 - Playwright never "stabilises" a continuously animated element (balloons): click it with `force: true`.

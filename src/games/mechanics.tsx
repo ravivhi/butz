@@ -226,8 +226,8 @@ export function Hop(p: MechProps) {
         ))}
       </View>
       <View style={{ flexDirection: ROW, gap: s(14) }}>
-        <Big emoji="🪨" label="+" color={pal.teal} size="m" onPress={() => !busy && setN((x) => Math.min(MAX_STONES, x + 1))} testID="stone-add" />
-        <Big emoji="↩️" color={pal.soft} size="m" onPress={() => !busy && setN((x) => Math.max(0, x - 1))} testID="stone-remove" />
+        <Big emoji="➕" color={pal.teal} size="m" onPress={() => !busy && setN((x) => Math.min(MAX_STONES, x + 1))} testID="stone-add" />
+        <Big emoji="➖" color={pal.soft} size="m" onPress={() => !busy && setN((x) => Math.max(0, x - 1))} testID="stone-remove" />
         <Big emoji="🐸" label="קְפֹץ!" color={pal.green} size="m" disabled={n === 0 || busy} onPress={jump} testID="jump" />
       </View>
     </View>

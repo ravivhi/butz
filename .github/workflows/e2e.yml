@@ -1,0 +1,44 @@
+# Runs the browser (e2e) tests on GitHub after every push, so the PC does not have to.
+# A push is published right away by pages.yml; this run only reports (✅ / ❌ on the commit) — fix failures in a follow-up push.
+name: E2E tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'store/**'
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'android-twa/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Microsoft Edge (preinstalled on the runner; install only if missing)
+        run: command -v microsoft-edge || npx playwright install --with-deps msedge
+      - run: npm run e2e
+        env:
+          CI: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-results
+          path: test-results/
+          retention-days: 7

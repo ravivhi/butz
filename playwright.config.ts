@@ -5,9 +5,11 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 180_000,
   expect: { timeout: 15_000 },
-  fullyParallel: false,
-  workers: 1,
-  reporter: [['list']],
+  // tests are independent (fresh browser context each), so they run side by side: 2 here (more ran out of memory
+  // on the dev PC), 3 on GitHub Actions (.github/workflows/e2e.yml)
+  fullyParallel: true,
+  workers: process.env.CI ? 3 : 2,
+  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
   use: { baseURL: 'http://localhost:8099', channel: 'msedge', trace: 'retain-on-failure' },
   webServer: { command: 'node scripts/serve.mjs dist 8099', url: 'http://localhost:8099', reuseExistingServer: true, timeout: 30_000 },
   projects: [

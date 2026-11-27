@@ -34,7 +34,7 @@ folder **without** `node_modules/`, `dist/`, `test-results/`, `playwright-report
 ### Publishing on Google Play (EAS Build)
 
 1. `npm ci`, then `npx eas-cli login` (free Expo account) and `npx eas-cli init` (links the project; adds an `extra.eas.projectId`).
-2. **Before the first upload** decide the package id in `app.json` (`android.package`, now `com.raviv.butz`).
+2. **Before the first upload** decide the package id in `app.json` (`android.package`, now `com.butz.hebrewreading`).
    It can never change after the first upload.
 3. Test build to install on a tablet: `npx eas-cli build -p android --profile preview` → `.apk`.
 4. Store build: `npx eas-cli build -p android --profile production` → `.aab`; upload it in the Play Console

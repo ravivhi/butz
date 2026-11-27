@@ -35,7 +35,8 @@ export function Notebooks() {
           <HelpButton text={g(SAY.notebooksHelp, p.gender)} size={46} />
         </View>
       </TopBar>
-      <View style={{ alignItems: 'center', paddingBottom: s(6) }}>
+      <View style={{ flexDirection: ROW, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: s(12), paddingBottom: s(6) }}>
+        {p.wallet.golden ? <Big label="מַעֲטָפַת זָהָב!" emoji="🏆" color={pal.gold} glow onPress={() => go({ name: 'notebook', id: p.wallet.active })} testID="golden-surprise" /> : null}
         {can ? <Big label="הַפְתָּעָה!" emoji="✉️" color={pal.purple} glow onPress={() => go({ name: 'notebook', id: p.wallet.active, open: true })} testID="surprise" />
           : <Txt size={18} font="uiMed" color={pal.soft}>{`✉️ ${p.wallet.stars}/${price} ⭐`}</Txt>}
       </View>
@@ -75,6 +76,7 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
   const have = new Set(p.wallet.stickers[id] ?? []);
   const price = envelopePrice(p.wallet);
   const canOpen = p.wallet.stars >= price && !notebookFull(p.wallet, id);
+  const canGolden = !!p.wallet.golden && !notebookFull(p.wallet, id);
 
   useEffect(() => {
     if (p.wallet.active !== id) updateProfile((pp) => { pp.wallet.active = id; });
@@ -93,9 +95,9 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
     return () => loop.stop();
   }, [canOpen, reduced, shake]);
 
-  const openIt = () => {
+  const openIt = (golden = false) => {
     let res: ReturnType<typeof openEnvelope> | undefined;
-    updateProfile((pp) => { pp.wallet.active = id; res = openEnvelope(pp.wallet, makeRng()); });
+    updateProfile((pp) => { pp.wallet.active = id; res = openEnvelope(pp.wallet, makeRng(), golden); });
     if (!res) return;
     if (!res.ok) { sfx('boing'); talk(res.reason === 'stars' ? needMore(price - p.wallet.stars, p.gender) : g(SAY.allFull, p.gender)); return; }
     sfx('reveal');
@@ -149,9 +151,10 @@ export function NotebookView({ id, open }: { id: string; open?: boolean }) {
           <Txt size={20} font="uiHeavy">{`${page + 1}/${pages}`}</Txt>
           <Round emoji="⬅️" label="עמוד הבא" onPress={() => { sfx('page'); setPage((x) => Math.min(pages - 1, x + 1)); }} testID="page-next" />
         </View>
+        {canGolden ? <Big label="מַעֲטָפַת זָהָב!" emoji="🏆" color={pal.gold} glow onPress={() => openIt(true)} testID="golden-envelope" /> : null}
         {canOpen ? (
           <Animated.View style={{ transform: [{ rotate: shake.interpolate({ inputRange: [-1, 1], outputRange: ['-8deg', '8deg'] }) }] }}>
-            <Big label="הַפְתָּעָה!" emoji="✉️" color={pal.purple} glow onPress={openIt} testID="envelope" />
+            <Big label="הַפְתָּעָה!" emoji="✉️" color={pal.purple} glow onPress={() => openIt()} testID="envelope" />
           </Animated.View>
         ) : (
           <Txt size={18} font="uiMed" color={pal.soft}>{notebookFull(p.wallet, id) ? GOLD_STICKER : `✉️ ${p.wallet.stars}/${price} ⭐`}</Txt>

@@ -107,8 +107,8 @@ export function ListenButton({ onPress, attention = true, size = 56, testID = 'r
   return <WiggleRound emoji="🔊" label="הקשבה" size={size} attention={attention} testID={testID} onPress={onPress} />;
 }
 
-export function Tile({ text, emoji, label, state = 'idle', onPress, size = 110, font = 'read', color, testID, wide }: {
-  text?: string; emoji?: string; label?: string; state?: TileState; onPress?: () => void; size?: number; font?: keyof typeof FONT; color?: string; testID?: string; wide?: boolean;
+export function Tile({ text, emoji, label, state = 'idle', onPress, size = 110, font = 'read', color, testID, wide, emojiScale = 0.5 }: {
+  text?: string; emoji?: string; label?: string; state?: TileState; onPress?: () => void; size?: number; font?: keyof typeof FONT; color?: string; testID?: string; wide?: boolean; emojiScale?: number;
 }) {
   const pal = usePalette();
   const { s, t } = useLayout();
@@ -141,7 +141,7 @@ export function Tile({ text, emoji, label, state = 'idle', onPress, size = 110, 
         onPressIn={p.onPressIn} onPressOut={p.onPressOut} onPress={onPress}
         style={{ minWidth: S * (wide ? 1.5 : 1), height: S, paddingHorizontal: s(10), borderRadius: s(22), backgroundColor: bg, borderWidth: s(state === 'hint' ? 6 : 3), borderColor: border, alignItems: 'center', justifyContent: 'center',
           shadowColor: pal.line, shadowOffset: { width: 0, height: s(4) }, shadowOpacity: 1, shadowRadius: 0, elevation: 4 }}>
-        {emoji ? <Text style={{ fontSize: S * 0.5 }}>{emoji}</Text> : null}
+        {emoji ? <Text style={{ fontSize: S * emojiScale }}>{emoji}</Text> : null}
         {text ? <Text style={{ fontFamily: FONT[font], fontSize: t(size * (text.replace(/[\u0591-\u05C7\u25CC]/g, '').length > 3 ? 0.32 : 0.46)), color: fg, writingDirection: 'rtl', textAlign: 'center' }}>{text}</Text> : null}
       </Pressable>
     </Animated.View>

@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { buildReport } from '../engine/report';
 import type { Band } from '../engine/learner';
-import { introduce, newLearner } from '../engine/learner';
+import { gameLevel, introduce, maxLevel, newLearner } from '../engine/learner';
 import { LETTERS, VOWELS, cvSay } from '../engine/hebrew';
 import { WORDS } from '../engine/content/words';
 import { SIGHT_WORDS } from '../engine/content/texts';
-import { SKILL } from '../engine/curriculum';
+import { GAMES, SKILL } from '../engine/curriculum';
 import { nextToIntroduce, practiceFocus } from '../engine/planner';
 import { makeRng } from '../engine/rng';
 import { allSpokenTexts } from '../engine/spoken';
@@ -91,6 +91,20 @@ function Report() {
           </View>
         ))}
       </Card>
+      <View testID="levels">
+        <Card style={{ gap: s(6) }}>
+          <Txt size={16} font="uiHeavy" center={false}>{'\u05e8\u05de\u05ea \u05d4\u05e7\u05d5\u05e9\u05d9 \u05d1\u05db\u05dc \u05de\u05e9\u05d7\u05e7 (\u05d4\u05d9\u05dc\u05d3 \u05dc\u05d0 \u05e8\u05d5\u05d0\u05d4 \u05d0\u05d5\u05ea\u05d4)'}</Txt>
+          {GAMES.map((gm) => {
+            const lv = gameLevel(p.learner, gm.id);
+            return (
+              <View key={gm.id} style={{ flexDirection: ROW, alignItems: 'center', justifyContent: 'space-between' }} testID={'level-' + gm.id}>
+                <Txt size={15} font="read" center={false}>{gm.icon + ' ' + gm.name}</Txt>
+                <Txt size={15} font="ui">{'\u25CF'.repeat(lv) + '\u25CB'.repeat(maxLevel(gm.id) - lv)}</Txt>
+              </View>
+            );
+          })}
+        </Card>
+      </View>
       <Txt size={18} font="uiHeavy" center={false}>אותיות</Txt>
       <View style={{ flexDirection: ROW, flexWrap: 'wrap', gap: s(6) }}>
         {r.letters.map((l) => (

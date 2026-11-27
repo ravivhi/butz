@@ -11,16 +11,18 @@ export const FONT = {
   ui: 'Rubik_700Bold',
   uiHeavy: 'Rubik_800ExtraBold',
   uiMed: 'Rubik_500Medium',
+  /** Hebrew cursive (כְּתָב יָד), Dana Yad by AlefAlefAlef (assets/fonts). Letters only, no nikud. */
+  cursive: 'DanaYad',
 };
 
 const NORMAL = {
   bg: '#FFF6E5', ink: '#24304A', soft: '#6B7A99', card: '#FFFFFF', line: '#24304A',
   orange: '#FF8A00', blue: '#2D7FF9', green: '#2EB85C', red: '#F25C54', purple: '#8E5CF7', yellow: '#FFC928', teal: '#13B5B1', pink: '#FF5FA2',
-  good: '#2EB85C', bad: '#F25C54', glow: '#FFC928', shadow: 'rgba(36,48,74,0.25)', dim: 0.35,
+  good: '#2EB85C', bad: '#F25C54', glow: '#FFC928', shadow: 'rgba(36,48,74,0.25)', dim: 0.35, gold: '#C98A00',
 };
 const CONTRAST: typeof NORMAL = {
   ...NORMAL, bg: '#FFFFFF', ink: '#000000', soft: '#222222', line: '#000000', shadow: 'rgba(0,0,0,0.6)', dim: 0.2,
-  orange: '#C25E00', blue: '#0040C0', green: '#00702A', red: '#B00020', purple: '#5B21B6', teal: '#00706C',
+  orange: '#C25E00', blue: '#0040C0', green: '#00702A', red: '#B00020', purple: '#5B21B6', teal: '#00706C', gold: '#8A5A00',
 };
 export type Palette = typeof NORMAL;
 

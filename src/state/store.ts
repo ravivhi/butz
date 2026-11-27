@@ -44,8 +44,7 @@ export type Route =
   | { name: 'setup' }
   | { name: 'home' }
   | { name: 'map' }
-  | { name: 'world'; world: string }
-  | { name: 'play'; source: 'session' | 'free'; game?: string }
+  | { name: 'play'; game: string }
   | { name: 'placement' }
   | { name: 'notebooks' }
   | { name: 'notebook'; id: string; open?: boolean }

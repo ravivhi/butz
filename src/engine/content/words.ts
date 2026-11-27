@@ -3,6 +3,7 @@
    review = 'checked'. A native-speaker teacher can mark items 'reviewed' (SPEC R-H9).
    Emoji must be Unicode ≤ 13 so older tablets render them. Ids are stable forever (progress refers to them). */
 import { analyzeWord, nfc, type Analysis } from '../hebrew.ts';
+import { LONG_ROWS, MORE_ROWS } from './words2.ts';
 
 export interface Word extends Analysis {
   id: string;
@@ -371,12 +372,16 @@ const ROWS: Row[] = [
   ['yahalom', 'יַהֲלוֹם', 'יַ|הֲ|לוֹם', '💎', 'diamond'],
 ];
 
-export const WORDS: Word[] = ROWS.map(([id, text, syl, emoji, en, f]) => {
+const toWord = ([id, text, syl, emoji, en, f]: Row): Word => {
   const t = nfc(text);
   const syllables = syl.split('|').map(nfc);
   const a = analyzeWord(t, f?.katan);
   const level: Word['level'] = syllables.length === 1 ? 'W1' : syllables.length === 2 ? 'W2' : 'W3';
   return { id, text: t, syl: syllables, emoji, en, say: f?.say, katan: f?.katan, level, review: 'checked', ...a };
-});
+};
+
+export const WORDS: Word[] = [...ROWS, ...MORE_ROWS].map(toWord);
+/** Long words and names of several words (words2.ts) for the hard levels of the Syllable Hop and the Word Bakery. */
+export const LONG_WORDS: Word[] = LONG_ROWS.map(toWord);
 
 export const WORD: Record<string, Word> = Object.fromEntries(WORDS.map((w) => [w.id, w]));

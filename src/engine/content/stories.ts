@@ -1,22 +1,33 @@
-/* Stories (SPEC G-25/G-26/G-27, §5.1). Listening stories are narrated (any vocabulary); reading stories are tiered so each
-   one becomes readable (≥ 90 % decodable tokens) at a different point of the spine. All text passes the nikud lint. */
+/* Stories (SPEC G-25/G-26/G-27, §9.6). v1.3: stories are text only (no pictures), shown whole on one scrolling page, at
+   eight levels (5 to 30 sentences). The 26 hand-written stories below are level 1, the 20 in familystories.ts
+   levels 1-7; every level also gets an
+   endless supply of generated stories (storygen.ts). All text passes the nikud lint. */
 import { nfc, textWords } from '../hebrew.ts';
+import type { Rng } from '../rng.ts';
+import type { Fact, GenStory, QType, StoryLevel } from './storygen.ts';
+import { levelForLength } from './storygen.ts';
+import { FAMILY_STORIES } from './familystories.ts';
+import { MORE_STORIES } from './morestories.ts';
+import { HARD_STORIES } from './hardstories.ts';
 
-export interface StoryQuestion { q: string; type: 'who' | 'what' | 'where' | 'why'; options: { emoji: string; label: string }[]; answer: number }
+export type { StoryLevel } from './storygen.ts';
+export interface StoryQuestion { q: string; type: QType; depth: 'literal' | 'detail'; options: { emoji?: string; label: string }[]; answer: number }
 export interface Story {
   id: string;
   title: string;
   kind: 'listen' | 'read';
-  cover: string;
-  pages: { text: string; scene: string }[];
+  level: StoryLevel;
+  paragraphs: string[][];   // sentences, grouped in paragraphs
   questions: StoryQuestion[];
-  order: number[];       // page indices for Story Puzzle cards (in the correct order)
-  words: string[];       // all tokens (for R-H1 coverage)
+  order: number[];          // sentence indices (reading order) for the Story Puzzle cards
+  words: string[];          // all tokens
   review: 'checked' | 'reviewed';
 }
+export const storySentences = (s: Story): string[] => s.paragraphs.flat();
 
-type StoryRow = Omit<Story, 'words' | 'review'>;
-const Q = (q: string, type: StoryQuestion['type'], opts: [string, string][], answer: number): StoryQuestion =>
+interface RowQ { q: string; type: 'who' | 'what' | 'where' | 'why'; options: { emoji: string; label: string }[]; answer: number }
+interface StoryRow { id: string; title: string; kind: 'listen' | 'read'; cover: string; pages: { text: string; scene: string }[]; questions: RowQ[]; order: number[] }
+const Q = (q: string, type: RowQ['type'], opts: [string, string][], answer: number): RowQ =>
   ({ q, type, options: opts.map(([emoji, label]) => ({ emoji, label })), answer });
 const P = (text: string, scene: string) => ({ text, scene });
 
@@ -93,7 +104,7 @@ const STORY_ROWS: StoryRow[] = [
   {
     id: 'space_cat', title: 'חָתוּל בֶּחָלָל', kind: 'listen', cover: '🚀',
     pages: [
-      P('לֶחָתוּל שֶׁל נֹגַהּ קוֹרְאִים מִיצִי, וְהוּא אוֹהֵב לְהִסְתַּכֵּל עַל הַכּוֹכָבִים.', '🐈⭐'),
+      P('לֶחָתוּל שֶׁל נֹגָה קוֹרְאִים מִיצִי, וְהוּא אוֹהֵב לְהִסְתַּכֵּל עַל הַכּוֹכָבִים.', '🐈⭐'),
       P('לַיְלָה אֶחָד מִיצִי מָצָא קֻפְסָה גְּדוֹלָה בֶּחָצֵר.', '📦🌙'),
       P('הוּא נִכְנַס לַקֻּפְסָה וְאָמַר: זֹאת הַחֲלָלִית שֶׁלִּי!', '🐈🚀'),
       P('בַּחֲלוֹם, הַקֻּפְסָה עָפָה גָּבוֹהַּ גָּבוֹהַּ, עַד הַיָּרֵחַ.', '🚀🌙'),
@@ -472,15 +483,47 @@ const STORY_ROWS: StoryRow[] = [
   },
 ];
 
-export const STORIES: Story[] = STORY_ROWS.map((s) => {
-  const pages = s.pages.map((p) => ({ ...p, text: nfc(p.text) }));
+const BASE: Story[] = STORY_ROWS.map((s) => {
+  const sentences = s.pages.map((p) => nfc(p.text));
   return {
-    ...s,
+    id: s.id,
     title: nfc(s.title),
-    pages,
-    questions: s.questions.map((q) => ({ ...q, q: nfc(q.q), options: q.options.map((o) => ({ ...o, label: nfc(o.label) })) })),
-    words: pages.flatMap((p) => textWords(p.text)),
+    kind: s.kind,
+    level: levelForLength(sentences.length),
+    paragraphs: [sentences],
+    questions: s.questions.map((q) => ({
+      q: nfc(q.q), type: q.type, depth: q.type === 'why' ? 'detail' : 'literal',
+      options: q.options.map((o) => ({ ...o, label: nfc(o.label) })), answer: q.answer,
+    })),
+    order: s.order,
+    words: sentences.flatMap((t) => textWords(t)),
     review: 'checked',
-  };
+  } satisfies Story;
 });
+export const STORIES: Story[] = [...BASE, ...FAMILY_STORIES, ...MORE_STORIES, ...HARD_STORIES];
 export const STORY: Record<string, Story> = Object.fromEntries(STORIES.map((s) => [s.id, s]));
+
+/** Options for one fact: the answer plus `n - 1` different wrong labels, shuffled. */
+function factQuestion(f: Fact, n: number, rng: Rng): StoryQuestion {
+  const wrong = rng.shuffle(f.pool).filter((o, i, a) => o.label !== f.a.label && a.findIndex((x) => x.label === o.label) === i).slice(0, n - 1);
+  const options = rng.shuffle([f.a, ...wrong]);
+  return { q: f.q, type: f.type, depth: f.depth, options, answer: options.indexOf(f.a) };
+}
+
+/** A generated story made playable: `nQ` questions (the preferred depth first, then in story order) and Story Puzzle
+    cards spread over the whole story. */
+export function playable(g: GenStory, prefer: 'literal' | 'detail', nQ: number, nOpt: number, nCards: number, rng: Rng): Story {
+  const sentences = g.paragraphs.flat();
+  const seenQ = new Set<string>();
+  const facts = g.facts.filter((f) => !seenQ.has(f.q) && !!seenQ.add(f.q));
+  const ranked = [...rng.shuffle(facts.filter((f) => f.depth === prefer)), ...rng.shuffle(facts.filter((f) => f.depth !== prefer))];
+  const chosen = new Set(ranked.slice(0, nQ));
+  const questions = facts.filter((f) => chosen.has(f)).map((f) => factQuestion(f, nOpt, rng));
+  const events = g.events.map((t) => sentences.indexOf(t)).filter((i, j, a) => i >= 0 && a.indexOf(i) === j);
+  const k = Math.min(nCards, events.length);
+  const order = k <= 1 ? events.slice(0, k) : Array.from({ length: k }, (_, i) => events[Math.round((i * (events.length - 1)) / (k - 1))]);
+  return {
+    id: g.id, title: g.title, kind: 'read', level: g.level, paragraphs: g.paragraphs, questions,
+    order: order.filter((i, j, a) => a.indexOf(i) === j), words: sentences.flatMap((t) => textWords(t)), review: 'checked',
+  };
+}
